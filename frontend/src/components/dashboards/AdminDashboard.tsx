@@ -41,6 +41,8 @@ export interface RoleCockpitProps {
     taskId: string,
     newColumn: 'backlog' | 'in_progress' | 'in_review' | 'completed'
   ) => Promise<void>;
+  rejectTask: (taskId: string, reason: string, category?: string) => Promise<void>;
+  approveTask: (taskId: string) => Promise<void>;
 }
 
 interface RfcItem {

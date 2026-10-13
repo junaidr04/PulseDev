@@ -158,6 +158,11 @@ export const api = {
         body: JSON.stringify({ reason, category }),
       }),
 
+    approve: (id: string) =>
+      request(`/api/tasks/${id}/approve`, {
+        method: 'POST',
+      }),
+
     delete: (id: string) =>
       request(`/api/tasks/${id}`, {
         method: 'DELETE',

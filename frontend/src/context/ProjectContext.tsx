@@ -133,6 +133,7 @@ interface ProjectContextType {
   updateTaskColumn: (taskId: string, newColumn: 'backlog' | 'in_progress' | 'in_review' | 'completed') => Promise<void>;
   updateTaskDetails: (taskId: string, updates: Partial<Task>) => Promise<void>;
   rejectTask: (taskId: string, reason: string, category?: string) => Promise<void>;
+  approveTask: (taskId: string) => Promise<void>;
   deleteTask: (taskId: string) => Promise<void>;
   addComment: (taskId: string, text: string) => Promise<void>;
   createProject: (data: any) => Promise<void>;
@@ -464,6 +465,19 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
     await loadAnalytics();
   };
 
+  const approveTask = async (taskId: string) => {
+    if (!user) {
+      throw new Error('Authentication required: Please sign in before approving an issue.');
+    }
+    await api.tasks.approve(taskId);
+    triggerNotificationRefresh();
+    if (activeProject?._id) {
+      await loadProjectTasks(activeProject._id);
+    }
+    await loadProjects();
+    await loadAnalytics();
+  };
+
   const updateTaskDetails = async (taskId: string, updates: Partial<Task>) => {
     if (!user) return;
     setTasks((prev) => {
@@ -545,6 +559,7 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
         updateTaskColumn,
         updateTaskDetails,
         rejectTask,
+        approveTask,
         deleteTask,
         addComment,
         createProject,

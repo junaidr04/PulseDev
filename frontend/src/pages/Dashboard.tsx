@@ -16,7 +16,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   onOpenNewTask,
   onOpenNewProject,
 }) => {
-  const { projects, tasks, activeProject, updateTaskColumn } = useProjects();
+  const { projects, tasks, activeProject, updateTaskColumn, rejectTask, approveTask } = useProjects();
   const { user } = useAuth();
 
   // Drive theme & CSS variables strictly from logged-in user's role in Auth/JWT context
@@ -120,6 +120,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
           onOpenNewTask={onOpenNewTask}
           onOpenNewProject={onOpenNewProject}
           updateTaskColumn={updateTaskColumn}
+          rejectTask={rejectTask}
+          approveTask={approveTask}
         />
       </div>
     </div>

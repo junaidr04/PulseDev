@@ -124,6 +124,8 @@ export const QADashboard: React.FC<RoleCockpitProps> = ({
   activeProject,
   onOpenNewTask,
   updateTaskColumn,
+  rejectTask,
+  approveTask,
 }) => {
   const projectKey = activeProject?.key || 'PAY';
 
@@ -289,16 +291,20 @@ export const QADashboard: React.FC<RoleCockpitProps> = ({
   };
 
   const handlePassCard = async (card: QaPipelineCard) => {
-    setQaCards((prev) =>
-      prev.map((c) =>
-        c.id === card.id ? { ...c, stage: 'passed', rejectionReason: undefined } : c
-      )
-    );
-    saveQaOverride(card.id, card.taskId, { stage: 'passed' });
-    if (card.taskId) {
-      await updateTaskColumn(card.taskId, 'completed');
+    try {
+      if (card.taskId) {
+        await approveTask(card.taskId);
+      }
+      setQaCards((prev) =>
+        prev.map((c) =>
+          c.id === card.id ? { ...c, stage: 'passed', rejectionReason: undefined } : c
+        )
+      );
+      saveQaOverride(card.id, card.taskId, { stage: 'passed' });
+      showToast(`Passed QA verification: ${card.code}`);
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Could not approve this issue.');
     }
-    showToast(`Passed QA verification: ${card.code}`);
   };
 
   const handleStartTesting = (card: QaPipelineCard) => {
@@ -325,21 +331,33 @@ export const QADashboard: React.FC<RoleCockpitProps> = ({
       rejectionReason: rejectReason.trim(),
     };
 
-    setQaCards((prev) =>
-      prev.map((c) =>
-        c.id === rejectModalCard.id ? { ...c, ...rejectData } : c
-      )
-    );
+    try {
+      if (rejectModalCard.taskId) {
+        const categoryMap: Record<typeof rejectCategory, string> = {
+          functional: 'Functional bug',
+          regression: 'Regression',
+          performance: 'Performance',
+          flaky: 'Other',
+        };
+        await rejectTask(
+          rejectModalCard.taskId,
+          rejectData.rejectionReason,
+          categoryMap[rejectCategory]
+        );
+      }
 
-    saveQaOverride(rejectModalCard.id, rejectModalCard.taskId, rejectData);
-
-    if (rejectModalCard.taskId) {
-      await updateTaskColumn(rejectModalCard.taskId, 'in_progress');
+      setQaCards((prev) =>
+        prev.map((c) =>
+          c.id === rejectModalCard.id ? { ...c, ...rejectData } : c
+        )
+      );
+      saveQaOverride(rejectModalCard.id, rejectModalCard.taskId, rejectData);
+      showToast(`Rejected ${rejectModalCard.code} with ${rejectCategory} issue`);
+      setRejectModalCard(null);
+      setRejectReason('');
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Could not reject this issue.');
     }
-
-    showToast(`Rejected ${rejectModalCard.code} with ${rejectCategory} issue`);
-    setRejectModalCard(null);
-    setRejectReason('');
   };
 
   const toggleFlakyQuarantine = (id: string) => {

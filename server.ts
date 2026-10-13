@@ -12,7 +12,7 @@ import systemRoutes from './backend/routes/systemRoutes.js';
 import notificationRoutes from './backend/routes/notificationRoutes.js';
 import messageRoutes from './backend/routes/messageRoutes.js';
 import { notFound, errorHandler } from './backend/middleware/errorMiddleware.js';
-import { createTask, updateTask, rejectTask, deleteTask, addTaskComment } from './backend/controllers/projectController.js';
+import { createTask, updateTask, rejectTask, approveTask, deleteTask, addTaskComment } from './backend/controllers/projectController.js';
 import { getUsers } from './backend/controllers/userController.js';
 import { protect, requirePermission } from './backend/middleware/authMiddleware.js';
 import db from './backend/config/db.js';
@@ -55,6 +55,7 @@ async function startServer() {
   app.post('/api/tasks', protect, requirePermission('tasks.write'), createTask);
   app.put('/api/tasks/:id', protect, requirePermission('tasks.write'), updateTask);
   app.post('/api/tasks/:id/reject', protect, requirePermission('tasks.write'), rejectTask);
+  app.post('/api/tasks/:id/approve', protect, requirePermission('tasks.write'), approveTask);
   app.delete('/api/tasks/:id', protect, requirePermission('tasks.delete'), deleteTask);
   app.post('/api/tasks/:id/comments', protect, requirePermission('tasks.write'), addTaskComment);
 

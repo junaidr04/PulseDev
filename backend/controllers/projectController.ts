@@ -406,6 +406,67 @@ export const rejectTask = async (req: AuthRequest, res: Response) => {
 };
 
 /**
+ * @desc    Approve a task after QA review and notify its owner and admins
+ * @route   POST /api/tasks/:id/approve
+ * @access  Private (QA review)
+ */
+export const approveTask = async (req: AuthRequest, res: Response) => {
+  try {
+    if (req.user?.role !== 'qa') {
+      return res.status(403).json({ success: false, message: 'Only QA can approve an issue.' });
+    }
+
+    const { id } = req.params;
+    const task = await db.tasks.findById(id);
+    if (!task) {
+      return res.status(404).json({ success: false, message: 'Task not found.' });
+    }
+    if (task.column !== 'in_review') {
+      return res.status(400).json({ success: false, message: 'Only issues in QA review can be approved.' });
+    }
+
+    const updated = await db.tasks.findByIdAndUpdate(
+      id,
+      { column: 'completed', ...(task.rejectionActive ? { rejectionActive: false } : {}) },
+      { new: true }
+    );
+    const admins = await db.users.find({ role: 'admin' });
+    const recipientIds = new Set([task.assigneeId, ...admins.map((admin) => admin._id)]);
+    const actorAvatar =
+      req.user.avatar ||
+      'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=64&h=64&q=80';
+
+    for (const recipientId of recipientIds) {
+      if (!recipientId) continue;
+      await db.notifications.create({
+        recipientId,
+        title: `Issue approved: ${task.title}`,
+        message: `${req.user.name} approved "${task.title}" in QA.`,
+        type: 'task',
+        read: false,
+        actorName: req.user.name,
+        actorAvatar,
+        link: `/tasks/${task._id}`,
+      });
+    }
+
+    await db.auditLogs.create({
+      action: 'TASK_QA_APPROVE',
+      entityType: 'Task',
+      entityId: task._id,
+      performedBy: req.user._id,
+      performedByName: req.user.name,
+      details: `Approved '${task.title}' in QA`,
+      ipAddress: req.ip || '127.0.0.1',
+    });
+
+    res.json({ success: true, message: 'Issue approved and marked as done.', task: updated });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+/**
  * @desc    Delete task
  * @route   DELETE /api/tasks/:id
  * @access  Private
