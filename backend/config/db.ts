@@ -50,6 +50,15 @@ export interface TaskDoc extends BaseDocument {
     text: string;
     createdAt: Date;
   }>;
+  rejectionHistory?: Array<{
+    id: string;
+    rejectedById: string;
+    rejectedByName: string;
+    rejectedAt: Date;
+    reason: string;
+    category?: 'Functional bug' | 'Regression' | 'Performance' | 'Other';
+  }>;
+  rejectionActive?: boolean;
 }
 
 export interface AuditLogDoc extends BaseDocument {

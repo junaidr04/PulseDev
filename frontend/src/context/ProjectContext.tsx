@@ -22,6 +22,15 @@ export interface Task {
     text: string;
     createdAt: string;
   }>;
+  rejectionHistory?: Array<{
+    id: string;
+    rejectedById: string;
+    rejectedByName: string;
+    rejectedAt: string;
+    reason: string;
+    category?: 'Functional bug' | 'Regression' | 'Performance' | 'Other';
+  }>;
+  rejectionActive?: boolean;
   assignee?: { _id: string; name: string; avatar: string; role: string } | null;
   reporter?: { _id: string; name: string; avatar: string } | null;
 }
@@ -123,6 +132,7 @@ interface ProjectContextType {
   createTask: (data: any) => Promise<void>;
   updateTaskColumn: (taskId: string, newColumn: 'backlog' | 'in_progress' | 'in_review' | 'completed') => Promise<void>;
   updateTaskDetails: (taskId: string, updates: Partial<Task>) => Promise<void>;
+  rejectTask: (taskId: string, reason: string, category?: string) => Promise<void>;
   deleteTask: (taskId: string) => Promise<void>;
   addComment: (taskId: string, text: string) => Promise<void>;
   createProject: (data: any) => Promise<void>;
@@ -441,6 +451,19 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   };
 
+  const rejectTask = async (taskId: string, reason: string, category?: string) => {
+    if (!user) {
+      throw new Error('Authentication required: Please sign in before rejecting an issue.');
+    }
+    await api.tasks.reject(taskId, reason, category);
+    triggerNotificationRefresh();
+    if (activeProject?._id) {
+      await loadProjectTasks(activeProject._id);
+    }
+    await loadProjects();
+    await loadAnalytics();
+  };
+
   const updateTaskDetails = async (taskId: string, updates: Partial<Task>) => {
     if (!user) return;
     setTasks((prev) => {
@@ -521,6 +544,7 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
         createTask,
         updateTaskColumn,
         updateTaskDetails,
+        rejectTask,
         deleteTask,
         addComment,
         createProject,

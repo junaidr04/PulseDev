@@ -223,6 +223,13 @@ export const updateTask = async (req: AuthRequest, res: Response) => {
     const userId = req.user?._id || '';
     const isAdmin = userRole === 'admin';
 
+    if (userRole === 'qa' && task.column === 'in_review' && req.body.column === 'in_progress') {
+      return res.status(400).json({
+        success: false,
+        message: 'Use the Reject action and provide a reason to return this issue to its owner.',
+      });
+    }
+
     // Non-admin users can control their own assigned tasks (or QA verifying in_review tasks)
     if (!isAdmin) {
       const isOwner = task.assigneeId === userId;
@@ -251,6 +258,14 @@ export const updateTask = async (req: AuthRequest, res: Response) => {
     if (typeof req.body.priority === 'string') safeUpdates.priority = req.body.priority;
     if (typeof req.body.estimateHours === 'number') safeUpdates.estimateHours = req.body.estimateHours;
     if (Array.isArray(req.body.tags)) safeUpdates.tags = req.body.tags;
+    if (
+      userRole === 'qa' &&
+      task.column === 'in_review' &&
+      req.body.column === 'completed' &&
+      task.rejectionActive
+    ) {
+      safeUpdates.rejectionActive = false;
+    }
     if ((isAdmin || userRole === 'lead') && typeof req.body.assigneeId === 'string') {
       safeUpdates.assigneeId = req.body.assigneeId;
     }
@@ -281,6 +296,108 @@ export const updateTask = async (req: AuthRequest, res: Response) => {
     res.json({
       success: true,
       message: 'Task updated successfully.',
+      task: updated,
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+/**
+ * @desc    Reject a task with a required reason and notify its owner and admins
+ * @route   POST /api/tasks/:id/reject
+ * @access  Private (QA review)
+ */
+export const rejectTask = async (req: AuthRequest, res: Response) => {
+  try {
+    if (req.user?.role !== 'qa') {
+      return res.status(403).json({ success: false, message: 'Only QA can reject an issue.' });
+    }
+
+    const { id } = req.params;
+    const task = await db.tasks.findById(id);
+    if (!task) {
+      return res.status(404).json({ success: false, message: 'Task not found.' });
+    }
+    if (task.column !== 'in_review') {
+      return res.status(400).json({ success: false, message: 'Only issues in QA review can be rejected.' });
+    }
+
+    const reason = typeof req.body.reason === 'string' ? req.body.reason.trim() : '';
+    if (!reason) {
+      return res.status(400).json({ success: false, message: 'Enter a reason before rejecting this issue.' });
+    }
+    if (reason.length > 500) {
+      return res.status(400).json({ success: false, message: 'The rejection reason must be 500 characters or fewer.' });
+    }
+
+    const validCategories = ['Functional bug', 'Regression', 'Performance', 'Other'] as const;
+    const category = req.body.category;
+    if (category !== undefined && category !== '' && !validCategories.includes(category)) {
+      return res.status(400).json({ success: false, message: 'Choose a valid rejection category.' });
+    }
+
+    const rejectedAt = new Date();
+    const rejection = {
+      id: generateObjectId(),
+      rejectedById: req.user._id,
+      rejectedByName: req.user.name,
+      rejectedAt,
+      reason,
+      ...(category ? { category } : {}),
+    };
+    const comment = {
+      id: generateObjectId(),
+      userId: req.user._id,
+      userName: req.user.name,
+      userAvatar: req.user.avatar,
+      text: `Rejected this issue: ${reason}${category ? ` (Category: ${category})` : ''}`,
+      createdAt: rejectedAt,
+    };
+    const updated = await db.tasks.findByIdAndUpdate(
+      id,
+      {
+        column: 'in_progress',
+        rejectionActive: true,
+        rejectionHistory: [...(task.rejectionHistory || []), rejection],
+        comments: [...(task.comments || []), comment],
+      },
+      { new: true }
+    );
+
+    const admins = await db.users.find({ role: 'admin' });
+    const recipientIds = new Set([task.assigneeId, ...admins.map((admin) => admin._id)]);
+    const recipientAvatar =
+      req.user.avatar ||
+      'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=64&h=64&q=80';
+
+    for (const recipientId of recipientIds) {
+      if (!recipientId) continue;
+      await db.notifications.create({
+        recipientId,
+        title: `Issue rejected: ${task.title}`,
+        message: `${req.user.name} rejected "${task.title}". Reason: ${reason}${category ? ` (${category})` : ''}`,
+        type: 'task',
+        read: false,
+        actorName: req.user.name,
+        actorAvatar: recipientAvatar,
+        link: `/tasks/${task._id}`,
+      });
+    }
+
+    await db.auditLogs.create({
+      action: 'TASK_REJECT',
+      entityType: 'Task',
+      entityId: task._id,
+      performedBy: req.user._id,
+      performedByName: req.user.name,
+      details: `Rejected '${task.title}': ${reason}${category ? ` (${category})` : ''}`,
+      ipAddress: req.ip || '127.0.0.1',
+    });
+
+    res.json({
+      success: true,
+      message: 'Issue rejected and returned to its owner.',
       task: updated,
     });
   } catch (error: any) {

@@ -69,6 +69,15 @@ const TEAM_ASSIGNEES = [
   },
 ];
 
+const formatRelativeTime = (dateValue: string) => {
+  const elapsedSeconds = Math.max(0, Math.floor((Date.now() - new Date(dateValue).getTime()) / 1000));
+  if (elapsedSeconds < 60) return 'just now';
+  if (elapsedSeconds < 3600) return `${Math.floor(elapsedSeconds / 60)} ${Math.floor(elapsedSeconds / 60) === 1 ? 'minute' : 'minutes'} ago`;
+  if (elapsedSeconds < 86400) return `${Math.floor(elapsedSeconds / 3600)} ${Math.floor(elapsedSeconds / 3600) === 1 ? 'hour' : 'hours'} ago`;
+  const days = Math.floor(elapsedSeconds / 86400);
+  return `${days} ${days === 1 ? 'day' : 'days'} ago`;
+};
+
 /**
  * Role-Specific Sprint Board Action & Ownership Evaluator:
  * - Admin ('admin'): Full control (move, reassign, delete anything).
@@ -199,6 +208,7 @@ export const SprintBoard: React.FC<SprintBoardProps> = ({ onOpenNewTask }) => {
     tasks,
     updateTaskColumn,
     updateTaskDetails,
+    rejectTask,
     deleteTask,
     addComment,
     loading,
@@ -212,6 +222,10 @@ export const SprintBoard: React.FC<SprintBoardProps> = ({ onOpenNewTask }) => {
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
   const [dragOverCol, setDragOverCol] = useState<Task['column'] | null>(null);
   const [doneBurstTaskId, setDoneBurstTaskId] = useState<string | null>(null);
+  const [rejectingTask, setRejectingTask] = useState<Task | null>(null);
+  const [rejectionReason, setRejectionReason] = useState('');
+  const [rejectionCategory, setRejectionCategory] = useState('');
+  const [isSubmittingRejection, setIsSubmittingRejection] = useState(false);
 
   const role = user?.role || 'guest';
   const roleTheme = getRoleTheme(role);
@@ -263,6 +277,11 @@ export const SprintBoard: React.FC<SprintBoardProps> = ({ onOpenNewTask }) => {
   const handleMoveTask = async (task: Task, targetColumn: Task['column']) => {
     const perm = evaluateTaskControl(task, user);
 
+    if (role === 'qa' && task.column === 'in_review' && targetColumn === 'in_progress') {
+      showToast('Use Reject and enter a reason to return this issue to its owner.');
+      return;
+    }
+
     if (!perm.canControl) {
       showToast(perm.lockReason);
       return;
@@ -312,6 +331,25 @@ export const SprintBoard: React.FC<SprintBoardProps> = ({ onOpenNewTask }) => {
     if (!commentInput.trim() || !liveSelectedTask || !user) return;
     await addComment(liveSelectedTask._id, commentInput.trim());
     setCommentInput('');
+  };
+
+  const handleRejectSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const reason = rejectionReason.trim();
+    if (!rejectingTask || !reason) return;
+
+    setIsSubmittingRejection(true);
+    try {
+      await rejectTask(rejectingTask._id, reason, rejectionCategory || undefined);
+      setRejectingTask(null);
+      setRejectionReason('');
+      setRejectionCategory('');
+      showToast('Issue rejected and returned to its owner.');
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Could not reject this issue. Please try again.');
+    } finally {
+      setIsSubmittingRejection(false);
+    }
   };
 
   const getPriorityBadge = (priority: Task['priority']) => {
@@ -641,6 +679,17 @@ export const SprintBoard: React.FC<SprintBoardProps> = ({ onOpenNewTask }) => {
                             </div>
 
                             {/* Title */}
+                            {task.rejectionActive && task.rejectionHistory?.length ? (
+                              <div className="mb-2 rounded-md border border-rose-400/25 bg-rose-400/[0.07] px-2 py-1.5">
+                                <span className="rounded bg-rose-400/15 px-1.5 py-0.5 text-[10px] font-semibold text-rose-300">
+                                  Rejected
+                                </span>
+                                <p className="mt-1 line-clamp-1 text-[11px] text-rose-100/80">
+                                  {task.rejectionHistory[task.rejectionHistory.length - 1].reason.split(/\r?\n/, 1)[0]}
+                                </p>
+                              </div>
+                            ) : null}
+
                             <h4 className="text-[13px] font-medium text-neutral-100 leading-snug group-hover:text-white">
                               {task.title}
                             </h4>
@@ -711,7 +760,9 @@ export const SprintBoard: React.FC<SprintBoardProps> = ({ onOpenNewTask }) => {
                                     <button
                                       onClick={(e) => {
                                         e.stopPropagation();
-                                        handleMoveTask(task, 'in_progress');
+                                        setRejectingTask(task);
+                                        setRejectionReason('');
+                                        setRejectionCategory('');
                                       }}
                                       className="flex items-center gap-1 rounded bg-rose-500/15 border border-rose-500/35 px-2 py-0.5 text-[10px] font-semibold text-rose-300 hover:bg-rose-500/25 cursor-pointer"
                                     >
@@ -802,6 +853,28 @@ export const SprintBoard: React.FC<SprintBoardProps> = ({ onOpenNewTask }) => {
               </button>
             </div>
 
+            {liveSelectedTask.rejectionHistory?.length ? (
+              <div className="space-y-2 rounded-lg border border-rose-400/25 bg-rose-400/[0.06] p-3">
+                {liveSelectedTask.rejectionHistory.slice().reverse().map((rejection, index) => (
+                  <div
+                    key={rejection.id}
+                    className={index > 0 ? 'border-t border-rose-400/15 pt-2' : ''}
+                  >
+                    <div className="text-xs font-semibold text-rose-200">
+                      {index === 0 && !liveSelectedTask.rejectionActive
+                        ? 'Previous QA rejection'
+                        : 'Rejected'}{' '}
+                      by {rejection.rejectedByName} · {formatRelativeTime(rejection.rejectedAt)}
+                    </div>
+                    {rejection.category && (
+                      <div className="mt-1 text-[10px] text-rose-200/60">{rejection.category}</div>
+                    )}
+                    <p className="mt-1 text-xs leading-relaxed text-neutral-200">{rejection.reason}</p>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+
             <p className="text-xs text-neutral-300 leading-relaxed">
               {liveSelectedTask.description}
             </p>
@@ -841,6 +914,13 @@ export const SprintBoard: React.FC<SprintBoardProps> = ({ onOpenNewTask }) => {
                 </div>
                 <div className="flex flex-wrap items-center gap-1.5">
                   {COLUMNS.map((c) => {
+                    if (
+                      role === 'qa' &&
+                      liveSelectedTask.column === 'in_review' &&
+                      c.id === 'in_progress'
+                    ) {
+                      return null;
+                    }
                     const isCurrent = liveSelectedTask.column === c.id;
                     const isAllowed = selectedTaskPerm.allowedColumns.includes(c.id);
                     return (
@@ -860,6 +940,18 @@ export const SprintBoard: React.FC<SprintBoardProps> = ({ onOpenNewTask }) => {
                       </button>
                     );
                   })}
+                  {role === 'qa' && liveSelectedTask.column === 'in_review' && (
+                    <button
+                      onClick={() => {
+                        setRejectingTask(liveSelectedTask);
+                        setRejectionReason('');
+                        setRejectionCategory('');
+                      }}
+                      className="rounded-lg border border-rose-400/35 bg-rose-400/10 px-2.5 py-1 text-xs font-medium text-rose-200 hover:bg-rose-400/20"
+                    >
+                      Reject with reason
+                    </button>
+                  )}
                 </div>
               </div>
             ) : (
@@ -920,6 +1012,83 @@ export const SprintBoard: React.FC<SprintBoardProps> = ({ onOpenNewTask }) => {
               )}
             </div>
           </div>
+        </div>
+      )}
+
+      {rejectingTask && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
+          onClick={() => !isSubmittingRejection && setRejectingTask(null)}
+        >
+          <form
+            onSubmit={handleRejectSubmit}
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-md space-y-4 rounded-xl border border-white/[0.1] bg-[#111317] p-5 shadow-2xl"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h2 className="text-sm font-semibold text-white">Reject issue</h2>
+                <p className="mt-1 text-xs text-neutral-400">{rejectingTask.title}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setRejectingTask(null)}
+                disabled={isSubmittingRejection}
+                className="text-neutral-500 hover:text-white disabled:opacity-50"
+                aria-label="Close rejection form"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <label className="block space-y-1.5">
+              <span className="text-xs font-medium text-neutral-300">Reason <span className="text-rose-300">*</span></span>
+              <textarea
+                autoFocus
+                required
+                maxLength={500}
+                value={rejectionReason}
+                onChange={(e) => setRejectionReason(e.target.value)}
+                placeholder="Describe what needs to be fixed..."
+                rows={4}
+                className="w-full resize-y rounded-lg border border-white/[0.1] bg-[#0e1014] px-3 py-2 text-xs text-white placeholder-neutral-500 focus:border-rose-400/50 focus:outline-none"
+              />
+              <span className="block text-right text-[10px] text-neutral-500">{rejectionReason.length}/500</span>
+            </label>
+
+            <label className="block space-y-1.5">
+              <span className="text-xs font-medium text-neutral-300">Category <span className="text-neutral-500">(optional)</span></span>
+              <select
+                value={rejectionCategory}
+                onChange={(e) => setRejectionCategory(e.target.value)}
+                className="w-full rounded-lg border border-white/[0.1] bg-[#0e1014] px-3 py-2 text-xs text-white focus:outline-none"
+              >
+                <option value="">No category</option>
+                <option value="Functional bug">Functional bug</option>
+                <option value="Regression">Regression</option>
+                <option value="Performance">Performance</option>
+                <option value="Other">Other</option>
+              </select>
+            </label>
+
+            <div className="flex justify-end gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => setRejectingTask(null)}
+                disabled={isSubmittingRejection}
+                className="rounded-lg border border-white/[0.1] px-3 py-2 text-xs text-neutral-300 hover:text-white disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={!rejectionReason.trim() || isSubmittingRejection}
+                className="rounded-lg bg-rose-500 px-3 py-2 text-xs font-semibold text-white hover:bg-rose-400 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {isSubmittingRejection ? 'Rejecting...' : 'Reject issue'}
+              </button>
+            </div>
+          </form>
         </div>
       )}
     </div>

@@ -152,6 +152,12 @@ export const api = {
         body: JSON.stringify(updates),
       }),
 
+    reject: (id: string, reason: string, category?: string) =>
+      request(`/api/tasks/${id}/reject`, {
+        method: 'POST',
+        body: JSON.stringify({ reason, category }),
+      }),
+
     delete: (id: string) =>
       request(`/api/tasks/${id}`, {
         method: 'DELETE',
