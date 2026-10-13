@@ -195,12 +195,14 @@ function mergeMessageLists(existing: ChatMessage[], incoming: ChatMessage[]): Ch
   // Next merge incoming messages; if an incoming server message matches an optimistic `local-*` message, replace the temp id cleanly
   for (const inc of incoming) {
     if (!inc || !inc._id) continue;
+    let matchedOptimistic: ChatMessage | undefined;
     for (const [key, cur] of byId.entries()) {
       if (
         key.startsWith('local-') &&
         !inc._id.startsWith('local-') &&
         normalizeKey(cur) === normalizeKey(inc)
       ) {
+        matchedOptimistic = cur;
         byId.delete(key);
       }
       // Also deduplicate legacy m1/m2/m3 seed IDs against seed-msg-1/2/3
@@ -219,6 +221,7 @@ function mergeMessageLists(existing: ChatMessage[], incoming: ChatMessage[]): Ch
         inc.attachments && inc.attachments.length > 0
           ? inc.attachments
           : prev?.attachments,
+      replyTo: inc.replyTo ?? prev?.replyTo ?? matchedOptimistic?.replyTo,
     });
   }
 
@@ -722,6 +725,30 @@ export const TeamChatWidget: React.FC = () => {
                         </span>
                       </div>
 
+                      {msg.replyTo && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            document
+                              .getElementById(`chat-message-${msg.replyTo?.messageId}`)
+                              ?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                          }
+                          className="mb-1.5 w-full max-w-full rounded-lg border border-indigo-400/35 border-l-[3px] border-l-indigo-400 bg-indigo-500/[0.12] px-3 py-2 text-left hover:bg-indigo-500/[0.2]"
+                          title={`Jump to ${msg.replyTo.userName || 'teammate'}'s original message`}
+                          aria-label={`${senderName} replied to ${msg.replyTo.userName || 'teammate'}: ${msg.replyTo.text || 'Attachment'}. Jump to original message.`}
+                        >
+                          <span className="flex items-center gap-1.5 text-[11px] font-semibold text-indigo-200">
+                            <Reply className="h-3.5 w-3.5 shrink-0" />
+                            <span className="break-words">
+                              {senderName} replied to {msg.replyTo.userName || 'Teammate'}
+                            </span>
+                          </span>
+                          <span className="mt-1 block whitespace-pre-wrap break-words text-[11px] leading-relaxed text-neutral-300">
+                            “{msg.replyTo.text || 'Attachment'}”
+                          </span>
+                        </button>
+                      )}
+
                       {(msg.text || msg.replyTo) && (
                         <div
                           className={`rounded-xl px-3.5 py-2.5 text-xs leading-relaxed ${
@@ -732,35 +759,6 @@ export const TeamChatWidget: React.FC = () => {
                               : 'bg-[#171a21] border border-white/[0.07] text-neutral-200'
                           }`}
                         >
-                          {msg.replyTo && (
-                            <div
-                              className={`mb-2 rounded-lg border-l-[3px] px-2.5 py-1.5 ${
-                                isMe
-                                  ? 'border-[#0b0c0e]/50 bg-black/[0.06] text-[#0b0c0e]/75'
-                                  : 'border-indigo-400 bg-white/[0.06] text-neutral-300'
-                              }`}
-                            >
-                              <div className="mb-0.5 flex items-center gap-1 text-[10px] font-semibold">
-                                <Reply className="h-3 w-3 shrink-0" />
-                                <span>
-                                  In reply to {msg.replyTo.userName || 'Teammate'}
-                                </span>
-                              </div>
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  document
-                                    .getElementById(`chat-message-${msg.replyTo?.messageId}`)
-                                    ?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-                                }
-                                className="max-h-20 w-full overflow-y-auto break-words whitespace-pre-wrap text-left text-[11px] opacity-80 hover:opacity-100"
-                                title={`View ${msg.replyTo.userName || 'teammate'}'s original message`}
-                                aria-label={`View original message from ${msg.replyTo.userName || 'teammate'}: ${msg.replyTo.text || 'Attachment'}`}
-                              >
-                                {msg.replyTo.text || 'Attachment'}
-                              </button>
-                            </div>
-                          )}
                           {renderMessageWithMentions(msg.text, isMe)}
                         </div>
                       )}
