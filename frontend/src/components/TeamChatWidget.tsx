@@ -732,9 +732,22 @@ export const TeamChatWidget: React.FC = () => {
                           }`}
                         >
                           {msg.replyTo && (
-                            <div className={`mb-2 border-l-2 pl-2 ${isMe ? 'border-[#0b0c0e]/40 text-[#0b0c0e]/70' : 'border-indigo-400/70 text-neutral-400'}`}>
-                              <div className="text-[10px] font-semibold">{msg.replyTo.userName}</div>
-                              <div className="line-clamp-2 text-[10px]">{msg.replyTo.text}</div>
+                            <div
+                              className={`mb-2 rounded-lg border-l-[3px] px-2.5 py-1.5 ${
+                                isMe
+                                  ? 'border-[#0b0c0e]/50 bg-black/[0.06] text-[#0b0c0e]/75'
+                                  : 'border-indigo-400 bg-white/[0.06] text-neutral-300'
+                              }`}
+                            >
+                              <div className="mb-0.5 flex items-center gap-1 text-[10px] font-semibold">
+                                <Reply className="h-3 w-3 shrink-0" />
+                                <span>
+                                  Replying to {msg.replyTo.userName || 'Teammate'}
+                                </span>
+                              </div>
+                              <div className="line-clamp-2 break-words text-[11px] opacity-80">
+                                {msg.replyTo.text || 'Attachment'}
+                              </div>
                             </div>
                           )}
                           {renderMessageWithMentions(msg.text, isMe)}
@@ -964,8 +977,11 @@ export const TeamChatWidget: React.FC = () => {
             {replyingTo && (
               <div className="flex items-center justify-between gap-3 border-t border-indigo-400/20 bg-indigo-500/[0.06] px-3 py-2">
                 <div className="min-w-0 border-l-2 border-indigo-400 pl-2">
-                  <div className="text-[10px] font-semibold text-indigo-300">
-                    Replying to {replyingTo.userName || replyingTo.senderName || 'Teammate'}
+                  <div className="flex items-center gap-1 text-[11px] font-semibold text-indigo-300">
+                    <Reply className="h-3 w-3 shrink-0" />
+                    <span>
+                      Replying to {replyingTo.userName || replyingTo.senderName || 'Teammate'}
+                    </span>
                   </div>
                   <div className="truncate text-[11px] text-neutral-400">
                     {replyingTo.text || 'Attachment'}
