@@ -59,25 +59,54 @@ Admin account-এ অতিরিক্ত **Security & Logs** এবং **User 
 
 অ্যাপটিতে নমুনা account বেছে নেওয়ার ব্যবস্থাও আছে। Sign in করতে নির্বাচিত account-এর বৈধ password দিতে হবে।
 
+## প্রজেক্টের ফোল্ডার বিন্যাস
+
+```text
+PulseDev/
+├── .github/workflows/   # GitHub Actions CI
+├── backend/
+│   ├── .env.example    # Backend environment variable template
+│   ├── config/          # Data storage এবং configuration
+│   ├── controllers/     # API request handlers
+│   ├── middleware/      # Authentication এবং error handling
+│   └── routes/          # API route definitions
+├── docker/              # Docker images এবং Compose setup
+├── frontend/
+│   ├── tailwind.config.ts
+│   ├── public/          # Static browser assets
+│   └── src/
+│       ├── components/  # Reusable UI components
+│       ├── context/     # Shared application state
+│       ├── pages/       # Application screens
+│       ├── services/    # API client
+│       ├── theme/       # Role-based styling
+│       └── utils/       # Shared frontend utilities
+├── .env.example         # Root environment variable template
+├── package-lock.json    # Reproducible npm dependency versions
+├── index.html           # Frontend entry document
+├── server.ts            # Express server and Vite integration
+├── package.json         # Scripts and dependencies
+├── tsconfig.json        # TypeScript configuration
+└── vite.config.ts       # Vite configuration
+```
+
 ## নিজের কম্পিউটারে চালানো
 
 ### প্রয়োজনীয় সফটওয়্যার
 
-- Node.js 20 বা তার পরের compatible সংস্করণ
+- Node.js 22.12 বা তার পরের সংস্করণ
 - npm (Node.js-এর সঙ্গে আসে)
 
 ### ইনস্টল ও চালু
 
-টার্মিনালে project folder-এ গিয়ে চালান:
+টার্মিনালে project folder-এ গিয়ে dependency lockfile অনুযায়ী install এবং development server চালান:
 
 ```bash
-npm install --legacy-peer-deps
+npm ci
 npm run dev
 ```
 
 তারপর browser-এ খুলুন: [http://localhost:3000](http://localhost:3000)
-
-`--legacy-peer-deps` ব্যবহার করা হয়েছে কারণ project-এর কিছু dependency-র peer version একে অপরের সঙ্গে পুরোপুরি মেলে না।
 
 ### AI সুবিধা চালু করা (ঐচ্ছিক)
 
