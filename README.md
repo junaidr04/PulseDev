@@ -124,6 +124,26 @@ npm run dev
 
 নিজের `.env` ফাইল বা API key কারও সঙ্গে শেয়ার করবেন না এবং version control-এ যোগ করবেন না।
 
+### Production administrator setup
+
+Production mode-এ নমুনা user, project বা task account তৈরি হয় না। প্রথমবার চালুর আগে deployment-এর **secret manager বা environment settings**-এ এগুলো দিন:
+
+```env
+NODE_ENV=production
+JWT_SECRET=<at least 32 random characters>
+INITIAL_ADMIN_NAME=Workspace Administrator
+INITIAL_ADMIN_EMAIL=admin@your-company.com
+INITIAL_ADMIN_PASSWORD=<unique password with at least 16 characters>
+```
+
+`JWT_SECRET` production-এ প্রতিবার চালুর সময় configure রাখা বাধ্যতামূলক। App log-এ initial administrator তৈরি হওয়ার বার্তা দেখলে `INITIAL_ADMIN_EMAIL` ও `INITIAL_ADMIN_PASSWORD` সরিয়ে ফেলুন; `JWT_SECRET` সরাবেন না। এরপর Admin account-এ sign in করে password পরিবর্তন করুন। এই bootstrap credentials দিয়ে app কেবল প্রথম Admin তৈরি করে, প্রতিবার restart-এ account আবার বানায় না।
+
+আগের demo seed data-সহ production install upgrade করলে, app পরিচিত built-in administrator password শনাক্ত করলে নিরাপত্তার জন্য startup থামবে। তখন উপরের নতুন, শক্তিশালী bootstrap credentials দিন। App পুরোনো administrator account-টিকে নতুন email/password-এ বদলাবে এবং built-in demo account-গুলোর পরিচিত password বাতিল করবে।
+
+Docker Compose ব্যবহার করলে project root-এর `.env`-এ এই মানগুলো দিন, তারপর `docker compose -f docker/docker-compose.yml up --build` চালান। Compose file app-এর `backend/data/`-কে persistent volume-এ রাখে। বাস্তব deployment-এ `.env`-কে version control-এ commit করবেন না; secret manager ব্যবহার করুন।
+
+> **Production data note:** App বর্তমানে JSON file-এ data রাখে (`backend/data/`)। Compose file-এ PostgreSQL ও Redis service থাকলেও app-এর active data layer সেগুলোর সঙ্গে যুক্ত নয়। তাই এগুলোকে production database, multi-instance synchronization, backup বা high availability হিসেবে ধরে নেবেন না।
+
 ### Production build তৈরি
 
 ```bash

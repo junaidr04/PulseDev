@@ -15,11 +15,13 @@ import { notFound, errorHandler } from './backend/middleware/errorMiddleware.js'
 import { createTask, updateTask, deleteTask, addTaskComment } from './backend/controllers/projectController.js';
 import { getUsers } from './backend/controllers/userController.js';
 import { protect, requirePermission } from './backend/middleware/authMiddleware.js';
+import db from './backend/config/db.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 async function startServer() {
+  await db.ready;
   const app = express();
   const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 

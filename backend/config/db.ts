@@ -1,4 +1,5 @@
 import bcrypt from 'bcryptjs';
+import { randomBytes } from 'crypto';
 import fs from 'fs';
 import path from 'path';
 
@@ -388,9 +389,10 @@ class MongoDatabase {
   public isConnected = true;
   public connectionUri = process.env.MONGO_URI || 'mongodb+srv://pulsedev_cluster:••••••••@cluster0.mern.mongodb.net/pulsedev_production?retryWrites=true&w=majority';
   public serverStartTime = new Date();
+  public readonly ready: Promise<void>;
 
   constructor() {
-    this.seedDatabase();
+    this.ready = this.seedDatabase();
   }
 
   async seedDatabase() {
@@ -464,6 +466,11 @@ class MongoDatabase {
         status: 'online',
       },
     ];
+
+    if (process.env.NODE_ENV === 'production') {
+      await this.prepareProductionUsers(coreAccounts);
+      return;
+    }
 
     for (const acc of coreAccounts) {
       const existing = await this.users.findById(acc._id);
@@ -779,6 +786,100 @@ class MongoDatabase {
     }
 
     console.log('[MongoDB] Seeding completed: 5 Users, 3 Projects, 6 Tasks, 2 AuditLogs, 3 Notifications, 3 Messages.');
+  }
+
+  private async prepareProductionUsers(
+    coreAccounts: Array<{
+      _id: string;
+      name: string;
+      email: string;
+      rawPassword: string;
+      role: UserDoc['role'];
+      avatar: string;
+      title: string;
+      department: string;
+      status: UserDoc['status'];
+    }>
+  ): Promise<void> {
+    const bootstrapEmail = process.env.INITIAL_ADMIN_EMAIL?.trim().toLowerCase();
+    const bootstrapPassword = process.env.INITIAL_ADMIN_PASSWORD;
+    const bootstrapName = process.env.INITIAL_ADMIN_NAME?.trim() || 'Workspace Administrator';
+
+    if (Boolean(bootstrapEmail) !== Boolean(bootstrapPassword)) {
+      throw new Error('Set both INITIAL_ADMIN_EMAIL and INITIAL_ADMIN_PASSWORD to bootstrap a production administrator.');
+    }
+
+    if (bootstrapPassword && bootstrapPassword.trim().length < 16) {
+      throw new Error('INITIAL_ADMIN_PASSWORD must be at least 16 characters long.');
+    }
+
+    if (bootstrapEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(bootstrapEmail)) {
+      throw new Error('INITIAL_ADMIN_EMAIL must be a valid email address.');
+    }
+
+    const builtInAdmin = coreAccounts.find((account) => account.role === 'admin');
+    if (!builtInAdmin) throw new Error('Production administrator seed configuration is missing.');
+
+    const existingBuiltInAdmin = await this.users.findById(builtInAdmin._id);
+    const hasBuiltInAdminPassword =
+      existingBuiltInAdmin &&
+      await bcrypt.compare(builtInAdmin.rawPassword, existingBuiltInAdmin.password);
+
+    if (hasBuiltInAdminPassword && (!bootstrapEmail || !bootstrapPassword)) {
+      throw new Error(
+        'A built-in administrator credential was found in production data. Set INITIAL_ADMIN_EMAIL and INITIAL_ADMIN_PASSWORD to replace it before starting.'
+      );
+    }
+
+    if (hasBuiltInAdminPassword && existingBuiltInAdmin && bootstrapEmail && bootstrapPassword) {
+      const emailOwner = await this.users.findOne({ email: bootstrapEmail });
+      if (emailOwner && emailOwner._id !== existingBuiltInAdmin._id) {
+        throw new Error('INITIAL_ADMIN_EMAIL already belongs to another account.');
+      }
+
+      await this.users.findByIdAndUpdate(existingBuiltInAdmin._id, {
+        name: bootstrapName,
+        email: bootstrapEmail,
+        password: await bcrypt.hash(bootstrapPassword, 12),
+      });
+      console.info('[Auth] Replaced a legacy built-in administrator credential.');
+    }
+
+    for (const account of coreAccounts) {
+      if (account._id === builtInAdmin._id) continue;
+      const existing = await this.users.findById(account._id);
+      if (existing && await bcrypt.compare(account.rawPassword, existing.password)) {
+        await this.users.findByIdAndUpdate(existing._id, {
+          password: await bcrypt.hash(randomBytes(32).toString('hex'), 12),
+        });
+      }
+    }
+
+    const administrator = await this.users.findOne({ role: 'admin' });
+    if (administrator) return;
+
+    if (!bootstrapEmail || !bootstrapPassword) {
+      throw new Error(
+        'No administrator account exists. Set INITIAL_ADMIN_EMAIL and INITIAL_ADMIN_PASSWORD to create one before starting in production.'
+      );
+    }
+
+    const emailOwner = await this.users.findOne({ email: bootstrapEmail });
+    if (emailOwner) {
+      throw new Error('INITIAL_ADMIN_EMAIL already belongs to a non-administrator account.');
+    }
+
+    await this.users.create({
+      name: bootstrapName,
+      email: bootstrapEmail,
+      password: await bcrypt.hash(bootstrapPassword, 12),
+      role: 'admin',
+      avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=Workspace%20Administrator',
+      title: 'Workspace Administrator',
+      department: 'Administration',
+      status: 'online',
+    });
+    console.info('[Auth] Created the initial production administrator account.');
   }
 
   // Get aggregated stats

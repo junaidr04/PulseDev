@@ -30,10 +30,16 @@ services:
       dockerfile: docker/Dockerfile.backend
     container_name: pulsedev_app
     restart: always
+    volumes:
+      - appdata:/app/backend/data
     ports:
       - '3000:3000'
     environment:
       NODE_ENV: production
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in the environment}
+      INITIAL_ADMIN_EMAIL: ${INITIAL_ADMIN_EMAIL:-}
+      INITIAL_ADMIN_PASSWORD: ${INITIAL_ADMIN_PASSWORD:-}
+      INITIAL_ADMIN_NAME: ${INITIAL_ADMIN_NAME:-Workspace Administrator}
       DATABASE_URL: postgresql://pulsedev:pulsedev_secret@postgres:5432/pulsedev_enterprise
       REDIS_URL: redis://redis:6379
     depends_on:
@@ -41,5 +47,6 @@ services:
       - redis
 
 volumes:
+  appdata:
   pgdata:
   redisdata:
