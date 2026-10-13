@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import db from '../config/db.js';
+import db, { MessageDoc } from '../config/db.js';
 import { AuthRequest } from '../middleware/authMiddleware.js';
 
 export const getMessages = async (req: Request, res: Response) => {
@@ -21,7 +21,7 @@ export const getMessages = async (req: Request, res: Response) => {
 
 export const createMessage = async (req: AuthRequest, res: Response) => {
   try {
-    const { text = '', channel = 'engineering-sync', attachments = [] } = req.body;
+    const { text = '', channel = 'engineering-sync', attachments = [], replyTo } = req.body;
     const hasAttachments = Array.isArray(attachments) && attachments.length > 0;
     if ((!text || !text.trim()) && !hasAttachments) {
       return res.status(400).json({ success: false, message: 'Message text or attachment is required' });
@@ -29,6 +29,21 @@ export const createMessage = async (req: AuthRequest, res: Response) => {
 
     const user = req.user;
     const cleanText = text ? text.trim() : '';
+    let replyDetails: MessageDoc['replyTo'];
+    if (replyTo !== undefined) {
+      if (!replyTo || typeof replyTo.messageId !== 'string') {
+        return res.status(400).json({ success: false, message: 'Choose a valid message to reply to.' });
+      }
+      const repliedMessage = await db.messages.findById(replyTo.messageId);
+      if (!repliedMessage || repliedMessage.channel !== channel) {
+        return res.status(404).json({ success: false, message: 'The message you are replying to could not be found.' });
+      }
+      replyDetails = {
+        messageId: repliedMessage._id,
+        userName: repliedMessage.userName,
+        text: repliedMessage.text || 'Attachment',
+      };
+    }
     const newMsg = await db.messages.create({
       userId: user?._id || 'anonymous',
       userName: user?.name || 'Engineer',
@@ -38,6 +53,7 @@ export const createMessage = async (req: AuthRequest, res: Response) => {
       channel,
       isAiResponse: false,
       attachments: hasAttachments ? attachments : [],
+      ...(replyDetails ? { replyTo: replyDetails } : {}),
     });
 
     const lower = cleanText.toLowerCase();

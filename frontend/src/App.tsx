@@ -8,7 +8,7 @@ import Sidebar from './components/Sidebar';
 import CreateTaskModal from './components/CreateTaskModal';
 import CreateProjectModal from './components/CreateProjectModal';
 import TeamChatWidget from './components/TeamChatWidget';
-import { CheckCircle2, ShieldCheck } from 'lucide-react';
+import { Activity, CheckCircle2, ShieldCheck } from 'lucide-react';
 
 // Pages
 import Login from './pages/Login';
@@ -152,8 +152,8 @@ const AppContent: React.FC = () => {
           >
             <motion.div
               initial={{ opacity: 0, scale: 0.15 }}
-              animate={{ opacity: [0, 0.55, 0.35, 0.2], scale: [0.15, 1.4, 2.8, 4.5] }}
-              transition={{ duration: 3.8, ease: CUBIC_EASE }}
+              animate={{ opacity: [0, 0.55, 0.35, 0.2], scale: [0.15, 1.1, 1.8, 2.4] }}
+              transition={{ duration: 1.3, ease: CUBIC_EASE }}
               style={{
                 background: `radial-gradient(circle, rgba(${welcomeTheme.accentRgb}, 0.28) 0%, rgba(${welcomeTheme.accentRgb}, 0.08) 45%, transparent 72%)`,
               }}
@@ -222,9 +222,58 @@ const AppContent: React.FC = () => {
                 <motion.div
                   initial={{ scaleX: 0 }}
                   animate={{ scaleX: 1 }}
-                  transition={{ duration: 3.85, ease: 'linear' }}
+                  transition={{ duration: 1.3, ease: 'linear' }}
                   style={{ backgroundImage: welcomeTheme.gradientCss }}
                   className="h-full w-full origin-left"
+                />
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+        {introPhase === 'pulse' && (
+          <motion.div
+            key="phase-pulse"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.25, ease: CUBIC_EASE }}
+            className="fixed inset-0 z-[95] flex items-center justify-center overflow-hidden bg-[#090b10] select-none"
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.5 }}
+              animate={{ opacity: [0.15, 0.45, 0.15], scale: [0.65, 1.4, 1.7] }}
+              transition={{ duration: 1.4, ease: 'easeOut' }}
+              className="pointer-events-none absolute h-64 w-64 rounded-full bg-emerald-400/20 blur-3xl"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.8, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 1.05 }}
+              transition={{ duration: 0.35, ease: CUBIC_EASE }}
+              className="relative flex items-center gap-3"
+            >
+              <motion.div
+                initial={{ scale: 0.7, rotate: -20 }}
+                animate={{ scale: 1, rotate: 0 }}
+                transition={{ duration: 0.45, ease: CUBIC_EASE }}
+                className="flex h-12 w-12 items-center justify-center rounded-2xl border border-emerald-300/30 bg-emerald-400/10 text-emerald-300 shadow-[0_0_32px_rgba(16,185,129,0.22)]"
+              >
+                <Activity className="h-6 w-6" strokeWidth={2.5} />
+              </motion.div>
+              <div className="overflow-hidden">
+                <motion.div
+                  initial={{ opacity: 0, x: -14 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.12, duration: 0.35, ease: CUBIC_EASE }}
+                  className="text-3xl font-extrabold tracking-tight text-white"
+                >
+                  Pulse<span className="text-emerald-300">Dev</span>
+                </motion.div>
+                <motion.div
+                  initial={{ scaleX: 0 }}
+                  animate={{ scaleX: 1 }}
+                  transition={{ delay: 0.2, duration: 0.5, ease: CUBIC_EASE }}
+                  className="mt-1 h-0.5 origin-left rounded-full bg-gradient-to-r from-emerald-400 to-cyan-400"
                 />
               </div>
             </motion.div>
@@ -236,7 +285,7 @@ const AppContent: React.FC = () => {
       <motion.div
         initial={false}
         animate={{
-          opacity: introPhase === 'welcome' ? 0 : 1,
+          opacity: introPhase !== 'none' ? 0 : 1,
         }}
         transition={{
           duration: 0.25,

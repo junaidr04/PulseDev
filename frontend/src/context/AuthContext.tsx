@@ -22,7 +22,7 @@ export interface User {
   impersonatedBy?: ImpersonatorInfo | null;
 }
 
-export type IntroPhase = 'none' | 'welcome';
+export type IntroPhase = 'none' | 'welcome' | 'pulse';
 
 const USER_STORAGE_KEY = 'pulsedev_current_user';
 
@@ -110,12 +110,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setWelcomeSplashUser(loggedUser);
     setIntroPhase('welcome');
 
-    const timer = setTimeout(() => {
+    const welcomeTimer = setTimeout(() => {
+      setIntroPhase('pulse');
+    }, 1400);
+    const pulseTimer = setTimeout(() => {
       setWelcomeSplashUser(null);
       setIntroPhase('none');
-    }, 1400);
+    }, 2900);
 
-    timersRef.current.push(timer);
+    timersRef.current.push(welcomeTimer, pulseTimer);
   };
 
   useEffect(() => {

@@ -234,10 +234,15 @@ export const api = {
   // Engineer Team Chat & Copilot Messages
   messages: {
     getAll: () => request('/api/messages'),
-    send: (text: string, channel = 'engineering-sync', attachments: any[] = []) =>
+    send: (
+      text: string,
+      channel = 'engineering-sync',
+      attachments: any[] = [],
+      replyTo?: { messageId: string; userName: string; text: string }
+    ) =>
       request('/api/messages', {
         method: 'POST',
-        body: JSON.stringify({ text, channel, attachments }),
+        body: JSON.stringify({ text, channel, attachments, replyTo }),
       }),
   },
 };

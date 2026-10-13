@@ -15,6 +15,7 @@ import {
   FileText,
   Download,
   ExternalLink,
+  Reply,
 } from 'lucide-react';
 
 export interface ChatAttachment {
@@ -40,6 +41,11 @@ interface ChatMessage {
   isAiResponse?: boolean;
   isAi?: boolean;
   attachments?: ChatAttachment[];
+  replyTo?: {
+    messageId: string;
+    userName: string;
+    text: string;
+  };
   createdAt: string;
 }
 
@@ -275,6 +281,7 @@ export const TeamChatWidget: React.FC = () => {
   const [messages, setMessages] = useState<ChatMessage[]>(() => loadSavedMessages());
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
+  const [replyingTo, setReplyingTo] = useState<ChatMessage | null>(null);
 
   // Per-user read message IDs so every member sees accurate unread badge count
   const [readMsgIdsByUser, setReadMsgIdsByUser] = useState<Record<string, string[]>>(() => {
@@ -456,9 +463,17 @@ export const TeamChatWidget: React.FC = () => {
 
     const textToSend = input.trim();
     const attachmentsToSend = [...pendingAttachments];
+    const replyTo = replyingTo
+      ? {
+          messageId: replyingTo._id,
+          userName: replyingTo.userName || replyingTo.senderName || 'Teammate',
+          text: replyingTo.text || 'Attachment',
+        }
+      : undefined;
 
     setInput('');
     setPendingAttachments([]);
+    setReplyingTo(null);
     setMentionPickerOpen(false);
     setEmojiPickerOpen(false);
     setSending(true);
@@ -479,6 +494,7 @@ export const TeamChatWidget: React.FC = () => {
       channel: 'engineering-sync',
       text: textToSend,
       attachments: attachmentsToSend,
+      replyTo,
       createdAt: new Date().toISOString(),
     };
     setMessages((prev) => {
@@ -489,7 +505,7 @@ export const TeamChatWidget: React.FC = () => {
     });
 
     try {
-      const res = await api.messages.send(textToSend, 'engineering-sync', attachmentsToSend);
+      const res = await api.messages.send(textToSend, 'engineering-sync', attachmentsToSend, replyTo);
       if (res.success) {
         if (res.message) {
           setMessages((prev) => {
@@ -705,7 +721,7 @@ export const TeamChatWidget: React.FC = () => {
                         </span>
                       </div>
 
-                      {msg.text && (
+                      {(msg.text || msg.replyTo) && (
                         <div
                           className={`rounded-xl px-3.5 py-2.5 text-xs leading-relaxed ${
                             isBot
@@ -715,6 +731,12 @@ export const TeamChatWidget: React.FC = () => {
                               : 'bg-[#171a21] border border-white/[0.07] text-neutral-200'
                           }`}
                         >
+                          {msg.replyTo && (
+                            <div className={`mb-2 border-l-2 pl-2 ${isMe ? 'border-[#0b0c0e]/40 text-[#0b0c0e]/70' : 'border-indigo-400/70 text-neutral-400'}`}>
+                              <div className="text-[10px] font-semibold">{msg.replyTo.userName}</div>
+                              <div className="line-clamp-2 text-[10px]">{msg.replyTo.text}</div>
+                            </div>
+                          )}
                           {renderMessageWithMentions(msg.text, isMe)}
                         </div>
                       )}
@@ -771,6 +793,20 @@ export const TeamChatWidget: React.FC = () => {
                             )
                           )}
                         </div>
+                      )}
+                      {!isBot && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setReplyingTo(msg);
+                            inputRef.current?.focus();
+                          }}
+                          className="mt-1 inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-[10px] text-neutral-500 hover:bg-white/[0.06] hover:text-neutral-200"
+                          title={`Reply to ${senderName}`}
+                        >
+                          <Reply className="h-3 w-3" />
+                          Reply
+                        </button>
                       )}
                     </div>
                   </div>
@@ -925,6 +961,26 @@ export const TeamChatWidget: React.FC = () => {
             />
 
             {/* Chat Input & Rich Toolbar Form */}
+            {replyingTo && (
+              <div className="flex items-center justify-between gap-3 border-t border-indigo-400/20 bg-indigo-500/[0.06] px-3 py-2">
+                <div className="min-w-0 border-l-2 border-indigo-400 pl-2">
+                  <div className="text-[10px] font-semibold text-indigo-300">
+                    Replying to {replyingTo.userName || replyingTo.senderName || 'Teammate'}
+                  </div>
+                  <div className="truncate text-[11px] text-neutral-400">
+                    {replyingTo.text || 'Attachment'}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setReplyingTo(null)}
+                  className="flex-shrink-0 rounded p-1 text-neutral-500 hover:text-white"
+                  aria-label="Cancel reply"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            )}
             <form
               onSubmit={handleSend}
               className="border-t border-white/[0.07] bg-[#14161b] p-2.5 flex items-center gap-1.5"

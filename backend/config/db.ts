@@ -88,6 +88,11 @@ export interface MessageDoc extends BaseDocument {
   channel: string;
   isAiResponse?: boolean;
   attachments?: ChatAttachmentDoc[];
+  replyTo?: {
+    messageId: string;
+    userName: string;
+    text: string;
+  };
 }
 
 export interface NotificationDoc extends BaseDocument {
