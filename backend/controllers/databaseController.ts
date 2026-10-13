@@ -9,6 +9,13 @@ import db from '../config/db.js';
 export const executeMongoQuery = async (req: Request, res: Response) => {
   try {
     const { collection = 'tasks', operation = 'find', filter = {}, pipeline = [] } = req.body;
+    const allowedCollections = ['users', 'projects', 'tasks', 'auditLogs'];
+    if (!allowedCollections.includes(collection)) {
+      return res.status(400).json({
+        success: false,
+        message: `Invalid collection: '${collection}'. Available: ${allowedCollections.join(', ')}.`,
+      });
+    }
 
     const targetCollection = (db as any)[collection];
     if (!targetCollection) {
@@ -45,6 +52,16 @@ export const executeMongoQuery = async (req: Request, res: Response) => {
 
     const executionTimeMs = Math.round((performance.now() - startTime) * 100) / 100;
 
+    const removeSensitiveFields = (value: any): any => {
+      if (Array.isArray(value)) return value.map(removeSensitiveFields);
+      if (!value || typeof value !== 'object' || value instanceof Date) return value;
+      return Object.fromEntries(
+        Object.entries(value)
+          .filter(([key]) => key !== 'password' && key !== 'passwordLabel')
+          .map(([key, nestedValue]) => [key, removeSensitiveFields(nestedValue)])
+      );
+    };
+
     res.json({
       success: true,
       collection,
@@ -56,7 +73,7 @@ export const executeMongoQuery = async (req: Request, res: Response) => {
         stage: operation === 'aggregate' ? `AGGREGATION_PIPELINE (${stageCount} stages)` : 'INDEX_SCAN (IXSCAN)',
         indexUsed: targetCollection.getIndexes()[0] || '_id_',
       },
-      data: result,
+      data: removeSensitiveFields(result),
     });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
@@ -91,6 +108,8 @@ export const resetAndSeedDatabase = async (req: Request, res: Response) => {
     db.projects.clear();
     db.tasks.clear();
     db.auditLogs.clear();
+    db.messages.clear();
+    db.notifications.clear();
     await db.seedDatabase();
 
     const stats = await db.getStats();

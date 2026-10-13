@@ -55,7 +55,6 @@ export const registerUser = async (req: Request, res: Response) => {
       name,
       email,
       password,
-      role = 'developer',
       department = 'Engineering',
       title = 'Software Engineer',
     } = req.body;
@@ -74,9 +73,6 @@ export const registerUser = async (req: Request, res: Response) => {
       });
     }
 
-    const validRoles = ['admin', 'lead', 'developer', 'qa', 'guest'];
-    const safeRole = validRoles.includes(role) ? role : 'developer';
-
     const existing = await db.users.findOne({ email: email.toLowerCase() });
     if (existing) {
       return res.status(400).json({
@@ -92,7 +88,7 @@ export const registerUser = async (req: Request, res: Response) => {
       name,
       email: email.toLowerCase(),
       password: hashedPassword,
-      role: safeRole as any,
+      role: 'developer',
       avatar: `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(name)}`,
       title,
       department,
@@ -340,76 +336,6 @@ export const changePassword = async (req: AuthRequest, res: Response) => {
     res.status(500).json({
       success: false,
       message: error.message || 'Failed to change password.',
-    });
-  }
-};
-
-/**
- * @desc    Forgot / Reset password for any workspace account by email
- * @route   POST /api/users/forgot-password
- * @access  Public
- */
-export const forgotPassword = async (req: Request, res: Response) => {
-  try {
-    const { email, newPassword } = req.body;
-    if (!email || !newPassword) {
-      return res.status(400).json({
-        success: false,
-        message: 'Please provide both account email and your new password.',
-      });
-    }
-
-    const cleanNewPassword = String(newPassword).trim();
-    if (cleanNewPassword.length < 6) {
-      return res.status(400).json({
-        success: false,
-        message: 'New password must be at least 6 characters long.',
-      });
-    }
-
-    const userDoc = await db.users.findOne({ email: String(email).toLowerCase().trim() });
-    if (!userDoc) {
-      return res.status(404).json({
-        success: false,
-        message: 'No workspace account found with that email address.',
-      });
-    }
-
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(cleanNewPassword, salt);
-
-    await db.users.findByIdAndUpdate(userDoc._id, {
-      password: hashedPassword,
-    });
-
-    await db.auditLogs.create({
-      action: 'PASSWORD_RESET',
-      entityType: 'Auth',
-      entityId: userDoc._id,
-      performedBy: userDoc._id,
-      performedByName: userDoc.name,
-      details: `Password reset completed for ${userDoc.email} (${userDoc.role}).`,
-      ipAddress: req.ip || '127.0.0.1',
-    });
-
-    await db.notifications.create({
-      title: 'Password Reset Completed',
-      message: `Password for ${userDoc.name} (${userDoc.email}) was reset.`,
-      type: 'auth',
-      read: false,
-      actorName: userDoc.name,
-      actorAvatar: userDoc.avatar,
-    });
-
-    res.json({
-      success: true,
-      message: `Password for ${userDoc.name} (${userDoc.email}) has been reset! You can now sign in with your new password.`,
-      email: userDoc.email,
-    });
-  } catch (error: any) {
-    res.status(500).json({
-      success: false,
-      message: error.message || 'Server error while resetting password.',
     });
   }
 };

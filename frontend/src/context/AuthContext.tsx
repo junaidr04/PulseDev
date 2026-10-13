@@ -69,7 +69,6 @@ interface AuthContextType {
   register: (userData: any) => Promise<void>;
   logout: () => Promise<void>;
   changePassword: (currentPassword: string, newPassword: string) => Promise<string>;
-  forgotPassword: (email: string, newPassword: string) => Promise<string>;
   updateOwnProfile: (
     updates: Partial<{ name: string; title: string; department: string; status: string }>
   ) => Promise<void>;
@@ -224,12 +223,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return res.message || 'Password changed successfully.';
   };
 
-  const forgotPassword = async (email: string, newPassword: string): Promise<string> => {
-    const res = await api.auth.forgotPassword(email, newPassword);
-    triggerNotificationRefresh();
-    return res.message || 'Password reset successfully.';
-  };
-
   const updateOwnProfile = async (
     updates: Partial<{ name: string; title: string; department: string; status: string }>
   ) => {
@@ -306,7 +299,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         register,
         logout,
         changePassword,
-        forgotPassword,
         updateOwnProfile,
         startImpersonation,
         exitImpersonation,

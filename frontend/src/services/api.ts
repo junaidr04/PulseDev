@@ -51,12 +51,6 @@ export const api = {
         body: JSON.stringify({ currentPassword, newPassword }),
       }),
 
-    forgotPassword: (email: string, newPassword: string) =>
-      request('/api/users/forgot-password', {
-        method: 'POST',
-        body: JSON.stringify({ email, newPassword }),
-      }),
-
     register: (userData: {
       name: string;
       email: string;

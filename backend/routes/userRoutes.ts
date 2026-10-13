@@ -4,7 +4,6 @@ import {
   loginUser,
   getLoginPersonas,
   changePassword,
-  forgotPassword,
   logoutUser,
   getUserProfile,
   getUsers,
@@ -26,7 +25,6 @@ const router = Router();
 router.get('/personas', getLoginPersonas);
 router.post('/register', registerUser);
 router.post('/login', loginUser);
-router.post('/forgot-password', forgotPassword);
 
 // Authenticated session, password change & token endpoints
 router.post('/change-password', protect, changePassword);

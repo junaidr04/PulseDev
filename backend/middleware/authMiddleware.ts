@@ -1,8 +1,44 @@
 import { Request, Response, NextFunction } from 'express';
+import { randomBytes } from 'crypto';
+import fs from 'fs';
 import jwt from 'jsonwebtoken';
+import path from 'path';
 import db from '../config/db.js';
 
-export const JWT_SECRET = process.env.JWT_SECRET || 'pulsedev_enterprise_super_secret_jwt_key_2026_x89';
+function resolveJwtSecret(): string {
+  const configuredSecret = process.env.JWT_SECRET?.trim();
+  if (configuredSecret) return configuredSecret;
+
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('JWT_SECRET must be configured before starting PulseDev in production.');
+  }
+
+  const secretPath = path.resolve(process.cwd(), 'backend', 'data', '.jwt-secret');
+  fs.mkdirSync(path.dirname(secretPath), { recursive: true });
+
+  try {
+    const savedSecret = fs.readFileSync(secretPath, 'utf-8').trim();
+    if (savedSecret) return savedSecret;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+  }
+
+  try {
+    fs.writeFileSync(secretPath, randomBytes(64).toString('hex'), {
+      encoding: 'utf-8',
+      flag: 'wx',
+      mode: 0o600,
+    });
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
+  }
+
+  const savedSecret = fs.readFileSync(secretPath, 'utf-8').trim();
+  if (!savedSecret) throw new Error('The local JWT secret file is empty.');
+  return savedSecret;
+}
+
+export const JWT_SECRET = resolveJwtSecret();
 
 // Server-side revoked token registry to invalidate sessions immediately upon logout
 export const revokedTokens = new Set<string>();

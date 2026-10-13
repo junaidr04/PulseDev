@@ -76,7 +76,7 @@ interface ProfileProps {
 }
 
 export const Profile: React.FC<ProfileProps> = ({ onNavigate }) => {
-  const { user, updateOwnProfile, logout, changePassword, forgotPassword } = useAuth();
+  const { user, updateOwnProfile, logout, changePassword } = useAuth();
   const [teamMembers, setTeamMembers] = useState<any[]>(FALLBACK_TEAM);
   const [activeTab, setActiveTab] = useState<'directory' | 'settings'>(() => {
     const saved = sessionStorage.getItem('pulsedev_profile_tab');
@@ -97,7 +97,6 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigate }) => {
 
   // Change / Reset Password State
   const passwordSectionRef = useRef<HTMLDivElement>(null);
-  const [passwordMode, setPasswordMode] = useState<'change' | 'reset'>('change');
   const [currentPassInput, setCurrentPassInput] = useState('');
   const [newPassInput, setNewPassInput] = useState('');
   const [confirmPassInput, setConfirmPassInput] = useState('');
@@ -205,23 +204,13 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigate }) => {
 
     setSavingPassword(true);
     try {
-      if (passwordMode === 'change') {
-        if (!currentPassInput.trim()) {
-          setPasswordError('Please enter your current password.');
-          setSavingPassword(false);
-          return;
-        }
-        const msg = await changePassword(currentPassInput.trim(), newPassInput.trim());
-        setPasswordSuccess(msg);
-      } else {
-        if (!user?.email) {
-          setPasswordError('No active user email found.');
-          setSavingPassword(false);
-          return;
-        }
-        const msg = await forgotPassword(user.email, newPassInput.trim());
-        setPasswordSuccess(msg);
+      if (!currentPassInput.trim()) {
+        setPasswordError('Please enter your current password.');
+        setSavingPassword(false);
+        return;
       }
+      const msg = await changePassword(currentPassInput.trim(), newPassInput.trim());
+      setPasswordSuccess(msg);
       setCurrentPassInput('');
       setNewPassInput('');
       setConfirmPassInput('');
@@ -347,7 +336,7 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigate }) => {
               className="w-full flex items-center justify-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 py-2 text-xs font-semibold text-emerald-300 hover:bg-emerald-500/20 transition-colors cursor-pointer"
             >
               <KeyRound className="h-3.5 w-3.5" />
-              <span>Change or Reset Password</span>
+              <span>Change Password</span>
             </button>
 
             {/* Active RBAC Permissions */}
@@ -575,42 +564,9 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigate }) => {
                           Password & Account Security
                         </h3>
                         <p className="text-xs text-neutral-400">
-                          Change your current password or reset it directly if you forgot your old password.
+                          Confirm your current password before choosing a new one.
                         </p>
                       </div>
-                    </div>
-
-                    <div className="flex items-center gap-1 rounded-lg border border-white/[0.08] bg-[#0c0e13] p-1">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setPasswordMode('change');
-                          setPasswordError(null);
-                          setPasswordSuccess(null);
-                        }}
-                        className={`rounded-md px-2.5 py-1 text-[11px] font-medium transition-colors cursor-pointer ${
-                          passwordMode === 'change'
-                            ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                            : 'text-neutral-400 hover:text-white'
-                        }`}
-                      >
-                        Change Password
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setPasswordMode('reset');
-                          setPasswordError(null);
-                          setPasswordSuccess(null);
-                        }}
-                        className={`rounded-md px-2.5 py-1 text-[11px] font-medium transition-colors cursor-pointer ${
-                          passwordMode === 'reset'
-                            ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30'
-                            : 'text-neutral-400 hover:text-white'
-                        }`}
-                      >
-                        Forgot Password?
-                      </button>
                     </div>
                   </div>
 
@@ -629,49 +585,32 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigate }) => {
                       </div>
                     )}
 
-                    {passwordMode === 'change' ? (
-                      <div>
-                        <div className="flex items-center justify-between mb-1">
-                          <label className="font-medium text-neutral-300">Current Password</label>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setPasswordMode('reset');
-                              setPasswordError(null);
-                            }}
-                            className="text-[11px] text-emerald-400 hover:underline cursor-pointer"
-                          >
-                            Forgot current password?
-                          </button>
-                        </div>
-                        <div className="relative">
-                          <Lock className="absolute left-3 top-2.5 h-3.5 w-3.5 text-neutral-500" />
-                          <input
-                            type={showCurrentPass ? 'text' : 'password'}
-                            required
-                            value={currentPassInput}
-                            onChange={(e) => setCurrentPassInput(e.target.value)}
-                            placeholder="Enter your current password"
-                            className="w-full rounded-lg border border-white/[0.1] bg-[#0c0e13] pl-9 pr-9 py-2 text-white focus:border-emerald-400/50 focus:outline-none"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => setShowCurrentPass(!showCurrentPass)}
-                            className="absolute right-3 top-2.5 text-neutral-500 hover:text-neutral-300 cursor-pointer"
-                          >
-                            {showCurrentPass ? (
-                              <EyeOff className="h-3.5 w-3.5" />
-                            ) : (
-                              <Eye className="h-3.5 w-3.5" />
-                            )}
-                          </button>
-                        </div>
+                    <div>
+                      <label className="mb-1 block font-medium text-neutral-300">Current Password</label>
+                      <div className="relative">
+                        <Lock className="absolute left-3 top-2.5 h-3.5 w-3.5 text-neutral-500" />
+                        <input
+                          type={showCurrentPass ? 'text' : 'password'}
+                          required
+                          value={currentPassInput}
+                          onChange={(e) => setCurrentPassInput(e.target.value)}
+                          placeholder="Enter your current password"
+                          className="w-full rounded-lg border border-white/[0.1] bg-[#0c0e13] pl-9 pr-9 py-2 text-white focus:border-emerald-400/50 focus:outline-none"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowCurrentPass(!showCurrentPass)}
+                          aria-label={showCurrentPass ? 'Hide current password' : 'Show current password'}
+                          className="absolute right-3 top-2.5 text-neutral-500 hover:text-neutral-300 cursor-pointer"
+                        >
+                          {showCurrentPass ? (
+                            <EyeOff className="h-3.5 w-3.5" />
+                          ) : (
+                            <Eye className="h-3.5 w-3.5" />
+                          )}
+                        </button>
                       </div>
-                    ) : (
-                      <div className="rounded-lg border border-cyan-500/25 bg-cyan-500/10 px-3.5 py-2.5 text-[11px] text-cyan-200">
-                        Direct Password Recovery Mode for <strong>{user?.email}</strong>: Enter a new password below without needing your previous password.
-                      </div>
-                    )}
+                    </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
@@ -739,11 +678,7 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigate }) => {
                         disabled={savingPassword}
                         className="rounded-lg bg-gradient-to-r from-emerald-400 to-cyan-400 px-4 py-2 text-xs font-semibold text-[#090b10] hover:opacity-95 transition-opacity cursor-pointer"
                       >
-                        {savingPassword
-                          ? 'Updating...'
-                          : passwordMode === 'change'
-                          ? 'Update Password'
-                          : 'Reset Password Now'}
+                        {savingPassword ? 'Updating...' : 'Update Password'}
                       </button>
                     </div>
                   </form>

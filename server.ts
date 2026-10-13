@@ -1,11 +1,8 @@
+import 'dotenv/config';
 import express, { Request, Response, NextFunction } from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { createServer as createViteServer } from 'vite';
-import dotenv from 'dotenv';
-
-// Load environment variables
-dotenv.config();
 
 import userRoutes from './backend/routes/userRoutes.js';
 import projectRoutes from './backend/routes/projectRoutes.js';

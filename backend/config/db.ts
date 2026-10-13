@@ -341,7 +341,14 @@ export class MongoCollection<T extends BaseDocument> {
 
   // Clear collection
   clear(): void {
+    const previousDocuments = new Map(this.documents);
     this.documents.clear();
+    try {
+      this.saveToDisk();
+    } catch (error) {
+      this.documents = previousDocuments;
+      throw error;
+    }
   }
 }
 

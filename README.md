@@ -43,7 +43,7 @@
 
 ### ৬. Profile ও টিমের সদস্য
 
-**Team Members** অংশে টিমের সদস্যদের তালিকা ও তাদের প্রোফাইল দেখা যায়। নিজের profile settings থেকে নাম, পদবি, বিভাগ এবং availability status পরিবর্তন করা যায়। সেখান থেকেই password পরিবর্তন বা reset করার সুবিধা পাওয়া যায়।
+**Team Members** অংশে টিমের সদস্যদের তালিকা ও তাদের প্রোফাইল দেখা যায়। নিজের profile settings থেকে নাম, পদবি, বিভাগ এবং availability status পরিবর্তন করা যায়। Password পরিবর্তন করতে বর্তমান password দিয়ে Profile settings ব্যবহার করুন। Password ভুলে গেলে workspace admin-এর সঙ্গে যোগাযোগ করুন; email verification-সহ reset ব্যবস্থা এই অ্যাপে নেই।
 
 ### ৭. Admin-দের জন্য
 
@@ -84,13 +84,14 @@ npm run dev
 সাধারণ workspace চালাতে Gemini key দরকার নেই। Planning Assistant-এর Gemini-নির্ভর অংশ ব্যবহার করতে:
 
 1. project-এর root-এ `.env` নামে ফাইল তৈরি করুন।
-2. তাতে নিজের Gemini API key যোগ করুন:
+2. অন্তত JWT secret এবং Gemini API key যোগ করুন। JWT secret হিসেবে cryptographically random, অন্তত 32-character মান ব্যবহার করুন:
 
    ```env
+   JWT_SECRET=replace_with_a_long_random_secret
    GEMINI_API_KEY=your_gemini_api_key
    ```
 
-3. server বন্ধ করে আবার `npm run dev` চালান।
+3. server বন্ধ করে আবার `npm run dev` চালান। `.env`-এ `JWT_SECRET` না থাকলে development mode প্রথমবার একটি local secret বানায় এবং `backend/data/.jwt-secret`-এ রেখে দেয়। Production mode-এ `JWT_SECRET` অবশ্যই set করতে হবে।
 
 নিজের `.env` ফাইল বা API key কারও সঙ্গে শেয়ার করবেন না এবং version control-এ যোগ করবেন না।
 
@@ -108,6 +109,8 @@ npm run build
 
 Password hash করে সংরক্ষণ করা হয়; plain-text password হিসেবে নয়। স্থানীয় account বা project হারাতে না চাইলে `backend/data/` folder-টি মুছবেন না এবং প্রয়োজন হলে নিরাপদ backup রাখুন। এই local JSON storage নিজে থেকে cloud backup বা একাধিক server-এর মধ্যে data sync করে না।
 
+Public registration-এ নতুন account `developer` role পায়। Admin সুবিধা কেবল বিদ্যমান admin account বা admin-এর role-management ব্যবস্থার মাধ্যমে দেওয়া উচিত। Database inspector ও reset/reseed API-ও কেবল admin account ব্যবহার করতে পারে।
+
 ## ব্যবহৃত প্রযুক্তি
 
 - **Frontend:** React, TypeScript, Vite এবং Tailwind CSS
@@ -115,4 +118,3 @@ Password hash করে সংরক্ষণ করা হয়; plain-text passw
 - **Authentication:** JWT এবং bcrypt password hashing
 - **AI integration:** ঐচ্ছিক Gemini API
 - **Local persistence:** JSON ফাইল
-
