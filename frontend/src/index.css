@@ -1,0 +1,266 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+@import "tailwindcss";
+
+:root {
+  /* Core Surface Palette — Deep Near-Black with Subtle Blue/Violet Undertone */
+  --bg-base: #090b10;
+  --bg-surface: #0e1118;
+  --bg-elevated: #141822;
+  --bg-hover: rgba(255, 255, 255, 0.035);
+  --bg-glass: rgba(14, 17, 24, 0.85);
+
+  /* Specular 1px Inner Borders */
+  --border-subtle: rgba(255, 255, 255, 0.07);
+  --border-strong: rgba(255, 255, 255, 0.14);
+  --border-accent: rgba(16, 185, 129, 0.35);
+
+  /* Typography Tokens (WCAG AA Checked) */
+  --text-primary: #f3f5f8;
+  --text-secondary: #9ba3b4;
+  --text-muted: #636b7d;
+
+  /* Signature Accent Palette (Emerald -> Cyan) */
+  --accent-emerald: #10b981;
+  --accent-cyan: #06b6d4;
+  --accent-indigo: #6366f1;
+  --accent-amber: #f59e0b;
+  --accent-rose: #f43f5e;
+  --accent-gradient: linear-gradient(135deg, #10b981 0%, #14b8a6 50%, #06b6d4 100%);
+
+  /* Dynamic Active Role Theme Variables (updated automatically via useSyncRoleCssVariables) */
+  --role-accent: #10b981;
+  --role-accent-secondary: #14b8a6;
+  --role-accent-rgb: 16, 185, 129;
+  --role-gradient: linear-gradient(135deg, #10b981 0%, #14b8a6 55%, #06b6d4 100%);
+
+  /* 4/8px Spatial Grid & Radii */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+
+  /* Layered Shadows */
+  --shadow-card: 0 1px 0 0 rgba(255, 255, 255, 0.06) inset, 0 8px 24px -6px rgba(0, 0, 0, 0.55);
+  --shadow-glow: 0 0 0 1px rgba(16, 185, 129, 0.28), 0 12px 32px -8px rgba(6, 182, 212, 0.18);
+}
+
+.light-theme {
+  --bg-base: #f8fafc;
+  --bg-surface: #ffffff;
+  --bg-elevated: #f1f5f9;
+  --bg-hover: rgba(15, 23, 42, 0.04);
+  --bg-glass: rgba(255, 255, 255, 0.88);
+  --border-subtle: rgba(15, 23, 42, 0.08);
+  --border-strong: rgba(15, 23, 42, 0.16);
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #64748b;
+}
+
+@layer base {
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    background-color: var(--bg-base);
+    color: var(--text-primary);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+
+  code, pre, .font-mono {
+    font-family: 'JetBrains Mono', monospace;
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+/* Subtle Specular Card & Hover Lift */
+.bento-card,
+.role-lift-card {
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  box-shadow: var(--shadow-card);
+  transition: transform 180ms cubic-bezier(0.16, 1, 0.3, 1),
+              border-color 180ms cubic-bezier(0.16, 1, 0.3, 1),
+              box-shadow 180ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.bento-card:hover,
+.role-lift-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(var(--role-accent-rgb), 0.38);
+  box-shadow: 0 1px 0 0 rgba(255, 255, 255, 0.1) inset,
+              0 14px 32px -8px rgba(0, 0, 0, 0.72),
+              0 0 24px -6px rgba(var(--role-accent-rgb), 0.22);
+}
+
+/* Rotating Conic-Gradient Border on Hero Card */
+@keyframes conicRotate {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.role-hero-conic {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.role-hero-conic::before {
+  content: "";
+  position: absolute;
+  inset: -120%;
+  background: conic-gradient(
+    from 0deg,
+    transparent 0deg,
+    rgba(var(--role-accent-rgb), 0.65) 75deg,
+    transparent 150deg,
+    rgba(var(--role-accent-rgb), 0.45) 255deg,
+    transparent 360deg
+  );
+  animation: conicRotate 14s linear infinite;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Subtle Role-Tinted Grid & Scanline Overlay */
+.role-ambient-grid {
+  background-size: 100% 100%, 32px 32px, 32px 32px;
+  background-position: 0 0, 0 0, 0 0;
+}
+
+/* Animated Topology Flow Lines */
+@keyframes dashFlow {
+  to {
+    stroke-dashoffset: -24;
+  }
+}
+
+.topology-flow-line {
+  animation: dashFlow 1.4s linear infinite;
+}
+
+/* Subtle Noise Overlay */
+.bg-noise {
+  background-image: radial-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 0);
+  background-size: 24px 24px;
+}
+
+/* Hide scrollbars completely on horizontal mobile nav rows */
+.no-scrollbar {
+  -ms-overflow-style: none !important;
+  scrollbar-width: none !important;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+/* Right-edge fade mask for horizontal scroll containers */
+.scroll-fade-right {
+  -webkit-mask-image: linear-gradient(to right, #000 84%, transparent 100%);
+  mask-image: linear-gradient(to right, #000 84%, transparent 100%);
+}
+
+/* Custom Slim Scrollbars */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.22);
+}
+
+@keyframes fadeUp {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 10px, 0) scale(0.985);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@keyframes modalSpringPop {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 12px, 0) scale(0.92);
+  }
+  70% {
+    opacity: 1;
+    transform: translate3d(0, -1px, 0) scale(1.01);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@keyframes popoverSpringPop {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, -6px, 0) scale(0.95);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+.animate-page {
+  will-change: transform, opacity;
+  animation: fadeUp 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-modal-pop {
+  will-change: transform, opacity;
+  animation: modalSpringPop 0.22s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.animate-popover-pop {
+  will-change: transform, opacity;
+  animation: popoverSpringPop 0.16s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Tactile Spring Micro-Interaction on All Interactive Buttons */
+button {
+  transition: transform 110ms cubic-bezier(0.22, 1, 0.36, 1),
+              background-color 120ms ease,
+              border-color 120ms ease,
+              color 120ms ease;
+}
+
+button:active:not(:disabled) {
+  transform: scale(0.96) !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-page,
+  .bento-card,
+  .role-lift-card,
+  .role-hero-conic::before,
+  .topology-flow-line {
+    animation: none !important;
+    transition: none !important;
+    transform: none !important;
+  }
+}

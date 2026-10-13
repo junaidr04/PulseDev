@@ -1,0 +1,45 @@
+version: '3.9'
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: pulsedev_postgres
+    restart: always
+    environment:
+      POSTGRES_USER: pulsedev
+      POSTGRES_PASSWORD: pulsedev_secret
+      POSTGRES_DB: pulsedev_enterprise
+    ports:
+      - '5432:5432'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7.2-alpine
+    container_name: pulsedev_redis
+    restart: always
+    command: redis-server --appendonly yes
+    ports:
+      - '6379:6379'
+    volumes:
+      - redisdata:/data
+
+  app:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.backend
+    container_name: pulsedev_app
+    restart: always
+    ports:
+      - '3000:3000'
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://pulsedev:pulsedev_secret@postgres:5432/pulsedev_enterprise
+      REDIS_URL: redis://redis:6379
+    depends_on:
+      - postgres
+      - redis
+
+volumes:
+  pgdata:
+  redisdata:

@@ -1,0 +1,120 @@
+// Enterprise Prisma Schema with pgvector & RBAC Support
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [vector]
+}
+
+enum Role {
+  admin
+  lead
+  developer
+  qa
+  guest
+}
+
+enum TaskColumn {
+  backlog
+  in_progress
+  in_review
+  completed
+}
+
+enum Priority {
+  low
+  medium
+  high
+  critical
+}
+
+model User {
+  id            String     @id @default(cuid())
+  name          String
+  email         String     @unique
+  passwordHash  String
+  role          Role       @default(developer)
+  title         String
+  department    String
+  avatar        String
+  status        String     @default("online")
+  assignedTasks Task[]     @relation("AssignedTasks")
+  reportedTasks Task[]     @relation("ReportedTasks")
+  auditLogs     AuditLog[]
+  messages      Message[]
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  @@index([email, role])
+}
+
+model Project {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  title       String
+  description String
+  category    String
+  status      String   @default("active")
+  progress    Int      @default(0)
+  leadId      String
+  tags        String[]
+  tasks       Task[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([key, status])
+}
+
+model Task {
+  id            String     @id @default(cuid())
+  projectId     String
+  project       Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  title         String
+  description   String
+  column        TaskColumn @default(backlog)
+  priority      Priority   @default(medium)
+  estimateHours Int        @default(4)
+  assigneeId    String
+  assignee      User       @relation("AssignedTasks", fields: [assigneeId], references: [id])
+  reporterId    String
+  reporter      User       @relation("ReportedTasks", fields: [reporterId], references: [id])
+  tags          String[]
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  @@index([projectId, column, priority])
+}
+
+model AuditLog {
+  id              String   @id @default(cuid())
+  action          String
+  entityType      String
+  entityId        String
+  performedBy     String
+  user            User     @relation(fields: [performedBy], references: [id])
+  performedByName String
+  details         String
+  ipAddress       String
+  createdAt       DateTime @default(now())
+
+  @@index([entityType, performedBy, createdAt])
+}
+
+model Message {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id])
+  userName     String
+  userAvatar   String
+  userRole     String
+  text         String
+  channel      String   @default("engineering-sync")
+  isAiResponse Boolean  @default(false)
+  createdAt    DateTime @default(now())
+
+  @@index([channel, createdAt])
+}
