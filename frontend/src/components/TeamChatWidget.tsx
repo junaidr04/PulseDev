@@ -303,7 +303,8 @@ export const TeamChatWidget: React.FC = () => {
   const [pendingAttachments, setPendingAttachments] = useState<ChatAttachment[]>([]);
   const [previewImageModal, setPreviewImageModal] = useState<ChatAttachment | null>(null);
 
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const isNearMessagesBottomRef = useRef(true);
   const inputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const pdfInputRef = useRef<HTMLInputElement>(null);
@@ -363,10 +364,20 @@ export const TeamChatWidget: React.FC = () => {
 
   useEffect(() => {
     if (isOpen) {
-      markMessagesReadForCurrentUser(messages);
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      isNearMessagesBottomRef.current = true;
     }
-  }, [isOpen, messages, currentUserKey]);
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    markMessagesReadForCurrentUser(messages);
+    if (isNearMessagesBottomRef.current) {
+      messagesContainerRef.current?.scrollTo({
+        top: messagesContainerRef.current.scrollHeight,
+        behavior: 'smooth',
+      });
+    }
+  }, [messages, isOpen, currentUserKey]);
 
   // Compute unread count for the active user (all messages not sent by current user and not yet read by current user)
   const userReadList = readMsgIdsByUser[currentUserKey] || [];
@@ -656,7 +667,15 @@ export const TeamChatWidget: React.FC = () => {
             </div>
 
             {/* Messages Stream */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            <div
+              ref={messagesContainerRef}
+              onScroll={(event) => {
+                const container = event.currentTarget;
+                isNearMessagesBottomRef.current =
+                  container.scrollHeight - container.scrollTop - container.clientHeight < 80;
+              }}
+              className="flex-1 overflow-y-auto p-4 space-y-4"
+            >
               {messages.map((msg) => {
                 const senderName = msg.userName || msg.senderName || 'Alex Chen';
                 const senderRole = msg.userRole || msg.senderRole || 'developer';
@@ -834,7 +853,6 @@ export const TeamChatWidget: React.FC = () => {
                   </div>
                 );
               })}
-              <div ref={messagesEndRef} />
             </div>
 
             {/* Emoji Picker Popover */}
