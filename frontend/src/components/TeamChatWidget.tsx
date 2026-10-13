@@ -678,6 +678,7 @@ export const TeamChatWidget: React.FC = () => {
                 return (
                   <div
                     key={msg._id}
+                    id={`chat-message-${msg._id}`}
                     className={`flex items-start gap-3 ${isMe ? 'flex-row-reverse' : ''}`}
                   >
                     {/* Sender Profile Picture */}
@@ -742,12 +743,22 @@ export const TeamChatWidget: React.FC = () => {
                               <div className="mb-0.5 flex items-center gap-1 text-[10px] font-semibold">
                                 <Reply className="h-3 w-3 shrink-0" />
                                 <span>
-                                  Replying to {msg.replyTo.userName || 'Teammate'}
+                                  In reply to {msg.replyTo.userName || 'Teammate'}
                                 </span>
                               </div>
-                              <div className="line-clamp-2 break-words text-[11px] opacity-80">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  document
+                                    .getElementById(`chat-message-${msg.replyTo?.messageId}`)
+                                    ?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                                }
+                                className="max-h-20 w-full overflow-y-auto break-words whitespace-pre-wrap text-left text-[11px] opacity-80 hover:opacity-100"
+                                title={`View ${msg.replyTo.userName || 'teammate'}'s original message`}
+                                aria-label={`View original message from ${msg.replyTo.userName || 'teammate'}: ${msg.replyTo.text || 'Attachment'}`}
+                              >
                                 {msg.replyTo.text || 'Attachment'}
-                              </div>
+                              </button>
                             </div>
                           )}
                           {renderMessageWithMentions(msg.text, isMe)}
