@@ -464,10 +464,10 @@ export const QADashboard: React.FC<RoleCockpitProps> = ({
 
                           {card.stage === 'failed' && (
                             <motion.div
-                              initial={{ scale: 2, opacity: 0, rotate: 15 }}
-                              animate={{ scale: 1, opacity: 1, rotate: 6 }}
-                              transition={{ type: 'spring', damping: 15 }}
-                              className="absolute top-3 right-3 pointer-events-none rounded border-2 border-rose-500/80 bg-rose-500/20 px-2 py-0.5 text-[10px] font-mono font-extrabold tracking-widest text-rose-300 shadow-lg select-none"
+                              initial={{ scale: 0.9, opacity: 0, rotate: -3 }}
+                              animate={{ scale: 1, opacity: 1, rotate: -3 }}
+                              transition={{ duration: 0.22, ease: 'easeOut' }}
+                              className="pointer-events-none w-fit rounded border border-rose-500/80 bg-rose-500/10 px-1.5 py-0.5 text-[9px] font-mono font-extrabold tracking-wider text-rose-300 select-none"
                             >
                               REJECTED
                             </motion.div>
