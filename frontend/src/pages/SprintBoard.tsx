@@ -78,14 +78,7 @@ const formatRelativeTime = (dateValue: string) => {
   return `${days} ${days === 1 ? 'day' : 'days'} ago`;
 };
 
-/**
- * Role-Specific Sprint Board Action & Ownership Evaluator:
- * - Admin ('admin'): Full control (move, reassign, delete anything).
- * - Backend Lead ('lead'): Approve/reassign in team and move across columns.
- * - Developer ('developer'): Move only own issues (Backlog -> In Progress -> In Review / Submit QA).
- * - QA ('qa'): Pass (-> Done) or Reject (-> In Progress) issues in QA review or assigned to Sophia.
- * - Product Manager ('guest'): Reprioritize & edit scope on any issue, move own issues.
- */
+/** Determines which Sprint Board controls are available for the authenticated role. */
 export function evaluateTaskControl(task: Task, user: User | null): {
   canControl: boolean;
   canReassign: boolean;
@@ -105,13 +98,12 @@ export function evaluateTaskControl(task: Task, user: User | null): {
     };
   }
 
-  const assigneeName = task.assignee?.name || 'Marcus Vance';
+  const assigneeName = task.assignee?.name || 'another team member';
   const isMyTask =
     task.assigneeId === user._id ||
     task.assignee?._id === user._id ||
-    assigneeName.toLowerCase() === user.name.toLowerCase();
+    (task.assignee?.name?.toLowerCase() === user.name.toLowerCase());
 
-  // 1. Admin (Alex Chen): Unrestricted control
   if (user.role === 'admin') {
     return {
       canControl: true,
@@ -123,49 +115,44 @@ export function evaluateTaskControl(task: Task, user: User | null): {
     };
   }
 
-  // 2. Backend Lead (Priya Patel): Approve/reassign team issues & move across columns
   if (user.role === 'lead') {
     return {
-      canControl: true,
+      canControl: task.column !== 'completed',
       canReassign: true,
       canReprioritize: true,
       isMyTask,
-      allowedColumns: ['backlog', 'in_progress', 'in_review', 'completed'],
-      lockReason: 'Staff Lead Team Authority',
+      allowedColumns: task.column === 'in_review'
+        ? ['in_review']
+        : task.column === 'completed'
+        ? []
+        : ['backlog', 'in_progress', 'in_review'],
+      lockReason: task.column === 'completed'
+        ? 'Leads cannot move issues that are already Done.'
+        : task.column === 'in_review'
+        ? 'Needs QA pass first. Only QA can return an issue from review.'
+        : 'Leads can move issues through Backlog, In Progress, and In Review; QA controls returns from review.',
     };
   }
 
-  // 3. Product Manager (Jordan Blake): Reprioritize & edit scope on any issue; move own issues
   if (user.role === 'guest') {
-    if (isMyTask) {
-      return {
-        canControl: true,
-        canReassign: false,
-        canReprioritize: true,
-        isMyTask: true,
-        allowedColumns: ['backlog', 'in_progress', 'in_review', 'completed'],
-        lockReason: 'Assigned to you (Product Manager)',
-      };
-    }
     return {
       canControl: false,
       canReassign: false,
       canReprioritize: true,
-      isMyTask: false,
+      isMyTask,
       allowedColumns: [],
-      lockReason: `Assigned to ${assigneeName} — Product Managers can reprioritize scope, but engineering status transitions belong to ${assigneeName} or Lead/Admin.`,
+      lockReason: 'Product Managers can edit priority and scope, but cannot move issues between statuses.',
     };
   }
 
-  // 4. QA Lead (Sophia Laurent): Pass/Reject issues in 'in_review' or assigned to QA
   if (user.role === 'qa') {
-    if (task.column === 'in_review' || isMyTask) {
+    if (task.column === 'in_review') {
       return {
         canControl: true,
         canReassign: false,
         canReprioritize: false,
         isMyTask,
-        allowedColumns: ['in_progress', 'in_review', 'completed'],
+        allowedColumns: ['in_review', 'completed'],
         lockReason: 'QA Gate Verification',
       };
     }
@@ -175,19 +162,20 @@ export function evaluateTaskControl(task: Task, user: User | null): {
       canReprioritize: false,
       isMyTask: false,
       allowedColumns: [],
-      lockReason: `Awaiting developer submission — QA Gate unlocks once ${assigneeName} moves this issue to "In Review (QA)".`,
+      lockReason: 'QA can Pass or Reject issues only while they are in In Review.',
     };
   }
 
-  // 5. Developer (Marcus Vance): Only own issues + Submit for QA
-  if (!isMyTask) {
+  if (!isMyTask || task.column === 'completed') {
     return {
       canControl: false,
       canReassign: false,
       canReprioritize: false,
       isMyTask: false,
       allowedColumns: [],
-      lockReason: `Assigned to ${assigneeName} — Engineers can only move issues assigned to themselves.`,
+      lockReason: task.column === 'completed'
+        ? 'Done issues cannot be moved by developers.'
+        : `Assigned to ${assigneeName} — Engineers can only move issues assigned to themselves.`,
     };
   }
 
@@ -196,7 +184,9 @@ export function evaluateTaskControl(task: Task, user: User | null): {
     canReassign: false,
     canReprioritize: false,
     isMyTask: true,
-    allowedColumns: ['backlog', 'in_progress', 'in_review'],
+    allowedColumns: task.column === 'in_review'
+      ? ['in_review']
+      : ['backlog', 'in_progress', 'in_review'],
     lockReason: 'Assigned to you (Submit to QA when ready)',
   };
 }
@@ -209,6 +199,7 @@ export const SprintBoard: React.FC<SprintBoardProps> = ({ onOpenNewTask }) => {
     updateTaskColumn,
     updateTaskDetails,
     rejectTask,
+    approveTask,
     deleteTask,
     addComment,
     loading,
@@ -218,6 +209,8 @@ export const SprintBoard: React.FC<SprintBoardProps> = ({ onOpenNewTask }) => {
   const [onlyMyIssues, setOnlyMyIssues] = useState<boolean>(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [commentInput, setCommentInput] = useState('');
+  const [scopeDescriptionDraft, setScopeDescriptionDraft] = useState<string | null>(null);
+  const [scopeTagsDraft, setScopeTagsDraft] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
   const [dragOverCol, setDragOverCol] = useState<Task['column'] | null>(null);
@@ -275,10 +268,21 @@ export const SprintBoard: React.FC<SprintBoardProps> = ({ onOpenNewTask }) => {
   };
 
   const handleMoveTask = async (task: Task, targetColumn: Task['column']) => {
+    if (task.column === targetColumn) return;
     const perm = evaluateTaskControl(task, user);
 
-    if (role === 'qa' && task.column === 'in_review' && targetColumn === 'in_progress') {
+    if (role === 'qa' && task.column === 'in_review' && targetColumn !== 'completed') {
       showToast('Use Reject and enter a reason to return this issue to its owner.');
+      return;
+    }
+
+    if (role === 'qa' && task.column === 'in_review' && targetColumn === 'completed') {
+      try {
+        await approveTask(task._id);
+        triggerDoneBurst(task._id);
+      } catch (error) {
+        showToast(error instanceof Error ? error.message : 'Could not pass this issue.');
+      }
       return;
     }
 
@@ -289,48 +293,84 @@ export const SprintBoard: React.FC<SprintBoardProps> = ({ onOpenNewTask }) => {
 
     if (!perm.allowedColumns.includes(targetColumn)) {
       if (targetColumn === 'completed') {
-        showToast('Role Gate: Only QA Lead, Backend Lead, or Admin can mark issues as Done.');
+        showToast(role === 'lead' ? 'Needs QA pass first.' : 'Only QA can pass an issue and move it to Done.');
       } else {
         showToast(`Your role (${roleTheme.roleTitle}) cannot move this issue to ${targetColumn.replace('_', ' ')}.`);
       }
       return;
     }
 
-    if (targetColumn === 'completed') {
-      triggerDoneBurst(task._id);
+    const overrideQa = isAdmin && targetColumn === 'completed' && task.column !== 'completed';
+    if (overrideQa && !window.confirm('This issue has no QA pass. Ship anyway?')) {
+      return;
     }
 
-    await updateTaskColumn(task._id, targetColumn);
+    try {
+      await updateTaskColumn(task._id, targetColumn, overrideQa);
+      if (targetColumn === 'completed') triggerDoneBurst(task._id);
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Could not update this issue.');
+    }
   };
 
   const handleReassignTask = async (task: Task, newAssigneeId: string) => {
     const found = TEAM_ASSIGNEES.find((a) => a._id === newAssigneeId);
     if (!found) return;
-    await updateTaskDetails(task._id, {
-      assigneeId: found._id,
-      assignee: {
-        _id: found._id,
-        name: found.name,
-        avatar: found.avatar,
-        role: found.role,
-      },
-    });
-    showToast(`Reassigned issue to ${found.name}`);
+    try {
+      await updateTaskDetails(task._id, { assigneeId: found._id });
+      showToast(`Reassigned issue to ${found.name}`);
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Could not reassign this issue.');
+    }
+  };
+
+  const handleDeleteTask = async (task: Task) => {
+    try {
+      await deleteTask(task._id);
+      showToast('Issue deleted.');
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Could not delete this issue.');
+    }
   };
 
   const handleReprioritizeTask = async (
     task: Task,
     newPriority: Task['priority']
   ) => {
-    await updateTaskDetails(task._id, { priority: newPriority });
-    showToast(`Updated priority to ${newPriority.toUpperCase()}`);
+    try {
+      await updateTaskDetails(task._id, { priority: newPriority });
+      showToast(`Updated priority to ${newPriority.toUpperCase()}`);
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Could not update issue priority.');
+    }
   };
 
   const handleAddComment = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!commentInput.trim() || !liveSelectedTask || !user) return;
-    await addComment(liveSelectedTask._id, commentInput.trim());
-    setCommentInput('');
+    try {
+      await addComment(liveSelectedTask._id, commentInput.trim());
+      setCommentInput('');
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Could not add this comment.');
+    }
+  };
+
+  const handleSaveScope = async () => {
+    if (!liveSelectedTask) return;
+    const description = scopeDescriptionDraft ?? liveSelectedTask.description;
+    const tags = (scopeTagsDraft ?? (liveSelectedTask.tags || []).join(','))
+      .split(',')
+      .map((tag) => tag.trim())
+      .filter(Boolean);
+    try {
+      await updateTaskDetails(liveSelectedTask._id, { description, tags });
+      setScopeDescriptionDraft(null);
+      setScopeTagsDraft(null);
+      showToast('Updated issue scope.');
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Could not update issue scope.');
+    }
   };
 
   const handleRejectSubmit = async (e: React.FormEvent) => {
@@ -468,15 +508,15 @@ export const SprintBoard: React.FC<SprintBoardProps> = ({ onOpenNewTask }) => {
                 {user?.name} ({roleTheme.roleTitle}):
               </strong>{' '}
               {isAdmin &&
-                'Full Architect Authority — Drag or move any issue, reassign owners, or delete tasks.'}
+                'Full Architect Authority — Manage any issue, reassign owners, and override a missing QA pass after confirmation. Overrides are audited.'}
               {isLead &&
-                'Backend Lead Authority — Approve PRs, reassign team members, and ship issues across all columns.'}
+                'Backend Lead Authority — Reassign, reprioritize, comment, and move issues through Backlog, In Progress, and In Review. QA controls returns from review and must pass issues before they can be Done.'}
               {role === 'developer' &&
-                'Developer Focus — Move your own assigned issues and click "Submit QA" when ready for Sophia.'}
+                'Developer Focus — Move only your assigned issues through Backlog, In Progress, and In Review. QA controls returns from review; submit your issues to QA when ready.'}
               {isQA &&
-                'Quality Gate Authority — Click "Pass" or "Reject" on issues in QA Review to stamp release status.'}
+                'Quality Gate Authority — Pass or Reject issues in In Review. A rejection requires a reason.'}
               {isPM &&
-                'Product Manager Studio — Reprioritize any issue, adjust sprint scope, and log new stories.'}
+                'Product Manager Studio — Edit issue priority and scope. Product Managers cannot move issues between statuses.'}
             </span>
           </div>
           <span className="font-mono text-[11px] text-neutral-400">
@@ -576,7 +616,11 @@ export const SprintBoard: React.FC<SprintBoardProps> = ({ onOpenNewTask }) => {
                               setDraggedTaskId(null);
                               setDragOverCol(null);
                             }}
-                            onClick={() => setSelectedTask(task)}
+                            onClick={() => {
+                              setScopeDescriptionDraft(null);
+                              setScopeTagsDraft(null);
+                              setSelectedTask(task);
+                            }}
                             className={`group relative rounded-lg border p-3.5 transition-colors cursor-pointer shadow-sm ${
                               perm.canControl
                                 ? 'border-white/[0.09] bg-[#13151a] hover:border-white/[0.2] hover:bg-[#161920]'
@@ -667,7 +711,7 @@ export const SprintBoard: React.FC<SprintBoardProps> = ({ onOpenNewTask }) => {
                                   <button
                                     onClick={(e) => {
                                       e.stopPropagation();
-                                      deleteTask(task._id);
+                                      void handleDeleteTask(task);
                                     }}
                                     className="opacity-0 group-hover:opacity-100 text-neutral-500 hover:text-rose-400 transition-opacity p-0.5 cursor-pointer"
                                     title="Delete issue (Admin only)"
@@ -784,6 +828,14 @@ export const SprintBoard: React.FC<SprintBoardProps> = ({ onOpenNewTask }) => {
                                     <span>Submit QA</span>
                                     <ArrowRight className="h-2.5 w-2.5" />
                                   </button>
+                                ) : isLead && task.column === 'in_review' ? (
+                                  <span
+                                    title="Needs QA pass first"
+                                    aria-label="Needs QA pass first"
+                                    className="inline-flex cursor-help items-center px-1.5 text-neutral-500"
+                                  >
+                                    <Lock className="h-3 w-3" />
+                                  </span>
                                 ) : perm.canControl &&
                                   nextCol &&
                                   perm.allowedColumns.includes(nextCol) ? (
@@ -875,9 +927,41 @@ export const SprintBoard: React.FC<SprintBoardProps> = ({ onOpenNewTask }) => {
               </div>
             ) : null}
 
-            <p className="text-xs text-neutral-300 leading-relaxed">
-              {liveSelectedTask.description}
-            </p>
+            {isPM ? (
+              <div className="space-y-2 rounded-lg border border-rose-400/20 bg-[#0d1017] p-3">
+                <label className="block space-y-1">
+                  <span className="text-[11px] font-medium text-neutral-300">Issue scope</span>
+                  <textarea
+                    value={scopeDescriptionDraft ?? liveSelectedTask.description}
+                    onChange={(event) => setScopeDescriptionDraft(event.target.value)}
+                    rows={3}
+                    className="w-full resize-y rounded-lg border border-white/[0.08] bg-[#090b10] px-3 py-2 text-xs leading-relaxed text-neutral-200 focus:border-rose-400/40 focus:outline-none"
+                  />
+                </label>
+                <label className="block space-y-1">
+                  <span className="text-[11px] font-medium text-neutral-300">Scope tags</span>
+                  <input
+                    value={scopeTagsDraft ?? (liveSelectedTask.tags || []).join(', ')}
+                    onChange={(event) => setScopeTagsDraft(event.target.value)}
+                    placeholder="Separate tags with commas"
+                    className="w-full rounded-lg border border-white/[0.08] bg-[#090b10] px-3 py-2 text-xs text-neutral-200 placeholder-neutral-500 focus:border-rose-400/40 focus:outline-none"
+                  />
+                </label>
+                <div className="flex justify-end">
+                  <button
+                    type="button"
+                    onClick={handleSaveScope}
+                    className="rounded-lg bg-rose-500/15 px-3 py-1.5 text-xs font-medium text-rose-200 hover:bg-rose-500/25"
+                  >
+                    Save scope
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <p className="text-xs text-neutral-300 leading-relaxed">
+                {liveSelectedTask.description}
+              </p>
+            )}
 
             {/* PM Scope & Priority Controls inside Detail Modal */}
             {selectedTaskPerm.canReprioritize && (
@@ -914,6 +998,7 @@ export const SprintBoard: React.FC<SprintBoardProps> = ({ onOpenNewTask }) => {
                 </div>
                 <div className="flex flex-wrap items-center gap-1.5">
                   {COLUMNS.map((c) => {
+                    if (isLead && c.id === 'completed') return null;
                     if (
                       role === 'qa' &&
                       liveSelectedTask.column === 'in_review' &&
@@ -936,10 +1021,20 @@ export const SprintBoard: React.FC<SprintBoardProps> = ({ onOpenNewTask }) => {
                             : 'border border-white/[0.08] bg-[#16181d] text-neutral-300 hover:text-white'
                         }`}
                       >
-                        {c.title}
+                        {role === 'qa' && c.id === 'completed' ? 'Pass' : c.title}
                       </button>
                     );
                   })}
+                  {isLead && liveSelectedTask.column === 'in_review' && (
+                    <span
+                      title="Needs QA pass first"
+                      aria-label="Needs QA pass first"
+                      className="inline-flex cursor-help items-center gap-1.5 rounded-lg border border-white/[0.06] px-2.5 py-1 text-xs text-neutral-500"
+                    >
+                      <Lock className="h-3 w-3" />
+                      Needs QA pass first
+                    </span>
+                  )}
                   {role === 'qa' && liveSelectedTask.column === 'in_review' && (
                     <button
                       onClick={() => {

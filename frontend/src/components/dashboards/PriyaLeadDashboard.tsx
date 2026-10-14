@@ -21,6 +21,7 @@ import {
   Terminal,
   Plus,
   ArrowRight,
+  Lock,
 } from 'lucide-react';
 
 interface PullRequestItem {
@@ -111,7 +112,6 @@ export const PriyaLeadDashboard: React.FC<RoleCockpitProps> = ({
   onNavigate,
   onOpenNewTask,
   onOpenNewProject,
-  updateTaskColumn,
 }) => {
   const [prs, setPrs] = useState<PullRequestItem[]>(() => {
     try {
@@ -379,12 +379,14 @@ export const PriyaLeadDashboard: React.FC<RoleCockpitProps> = ({
                       ({t.assignee?.name || 'Priya Patel'})
                     </span>
                   </div>
-                  <button
-                    onClick={() => updateTaskColumn(t._id, 'completed')}
-                    className="rounded bg-violet-500/20 px-2.5 py-1 font-mono text-[11px] text-violet-200 hover:bg-violet-500/35 cursor-pointer flex-shrink-0"
+                  <span
+                    title="Needs QA pass first"
+                    aria-label="Needs QA pass first"
+                    className="inline-flex flex-shrink-0 cursor-help items-center gap-1 rounded bg-white/[0.04] px-2.5 py-1 font-mono text-[11px] text-neutral-400"
                   >
-                    Ship →
-                  </button>
+                    <Lock className="h-3 w-3" />
+                    Needs QA pass first
+                  </span>
                 </div>
               ))}
             </div>

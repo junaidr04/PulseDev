@@ -51,7 +51,8 @@ const ASSIGNEE_OPTIONS = [
 export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({ isOpen, onClose }) => {
   const { createTask } = useProjects();
   const { user } = useAuth();
-  const isAdmin = user?.role === 'admin' || user?.role === 'lead' || user?.role === 'guest';
+  const canAssignToTeam = user?.role === 'admin' || user?.role === 'lead';
+  const canChooseInitialStatus = user?.role === 'admin';
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -79,7 +80,16 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({ isOpen, onClos
     setLoading(true);
     setErrorMsg(null);
 
-    const selectedMember = isAdmin
+    if (
+      canChooseInitialStatus &&
+      column === 'completed' &&
+      !window.confirm('This issue has no QA pass. Ship anyway?')
+    ) {
+      setLoading(false);
+      return;
+    }
+
+    const selectedMember = canAssignToTeam
       ? ASSIGNEE_OPTIONS.find((m) => m.id === assigneeId || m.name === user?.name) || ASSIGNEE_OPTIONS[0]
       : {
           id: user?._id || '3',
@@ -94,7 +104,8 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({ isOpen, onClos
       await createTask({
         title: title.trim(),
         description: description.trim(),
-        column: isAdmin ? column : 'backlog',
+        column: canChooseInitialStatus ? column : 'backlog',
+        ...(canChooseInitialStatus && column === 'completed' ? { overrideQa: true } : {}),
         priority,
         assigneeId: selectedMember.id,
         assignee: {
@@ -142,8 +153,8 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({ isOpen, onClos
           <div>
             <h3 className="text-sm font-semibold text-white">New Issue</h3>
             <p className="text-xs text-neutral-500 mt-0.5">
-              {isAdmin
-                ? 'Admin Mode: Assign issue to any team member'
+              {canAssignToTeam
+                ? `${user?.role === 'admin' ? 'Admin' : 'Lead'} Mode: Assign issue to a team member`
                 : `Scoped Mode: Issue will be assigned to you (${user?.name})`}
             </p>
           </div>
@@ -200,7 +211,7 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({ isOpen, onClos
           {/* Assignee Control: Admin can assign to anyone; Engineers are locked to themselves */}
           <div>
             <label className="block font-medium text-neutral-300">Assignee</label>
-            {isAdmin ? (
+            {canAssignToTeam ? (
               <select
                 value={assigneeId}
                 onChange={(e) => setAssigneeId(e.target.value)}
@@ -227,13 +238,13 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({ isOpen, onClos
             <div>
               <label className="block font-medium text-neutral-300">Status</label>
               <select
-                value={isAdmin ? column : 'backlog'}
-                disabled={!isAdmin}
+                value={canChooseInitialStatus ? column : 'backlog'}
+                disabled={!canChooseInitialStatus}
                 onChange={(e) => setColumn(e.target.value)}
                 className="mt-1.5 w-full rounded-lg border border-white/[0.08] bg-[#0e1014] px-2.5 py-2 text-white disabled:opacity-60 focus:outline-none"
               >
                 <option value="backlog">Backlog</option>
-                {isAdmin && (
+                {canChooseInitialStatus && (
                   <>
                     <option value="in_progress">In Progress</option>
                     <option value="in_review">In Review</option>

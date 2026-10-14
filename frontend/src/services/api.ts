@@ -145,7 +145,15 @@ export const api = {
 
     update: (
       id: string,
-      updates: Partial<{ column: string; priority: string; title: string; description: string; assigneeId: string }>
+      updates: Partial<{
+        column: 'backlog' | 'in_progress' | 'in_review' | 'completed';
+        priority: 'low' | 'medium' | 'high' | 'critical';
+        title: string;
+        description: string;
+        estimateHours: number;
+        tags: string[];
+        assigneeId: string;
+      }> & { overrideQa?: boolean }
     ) =>
       request(`/api/tasks/${id}`, {
         method: 'PUT',

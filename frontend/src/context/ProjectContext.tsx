@@ -130,7 +130,11 @@ interface ProjectContextType {
   loadProjects: () => Promise<void>;
   loadProjectTasks: (projectId: string) => Promise<void>;
   createTask: (data: any) => Promise<void>;
-  updateTaskColumn: (taskId: string, newColumn: 'backlog' | 'in_progress' | 'in_review' | 'completed') => Promise<void>;
+  updateTaskColumn: (
+    taskId: string,
+    newColumn: 'backlog' | 'in_progress' | 'in_review' | 'completed',
+    overrideQa?: boolean
+  ) => Promise<void>;
   updateTaskDetails: (taskId: string, updates: Partial<Task>) => Promise<void>;
   rejectTask: (taskId: string, reason: string, category?: string) => Promise<void>;
   approveTask: (taskId: string) => Promise<void>;
@@ -255,200 +259,60 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
       throw new Error('Authentication required: Please sign in before creating an issue.');
     }
     const targetProjectId = activeProject?._id || projects[0]?._id || '66b2cf8912e3d4c5b6a78010';
-    const actorName = user.name;
-    const actorAvatar =
-      user.avatar ||
-      'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=64&h=64&q=80';
-
-    const tempTask: Task = {
-      _id: `temp-${Date.now()}`,
+    const res = await api.tasks.create({
+      ...data,
       projectId: targetProjectId,
-      title: data.title || 'Untitled Issue',
-      description: data.description || '',
-      column: data.column || 'backlog',
-      priority: data.priority || 'medium',
-      assigneeId: data.assigneeId || user?._id || '66a1bf9823e4d5c6b7a89003',
-      reporterId: user?._id || '66a1bf9823e4d5c6b7a89001',
-      estimateHours: Number(data.estimateHours) || 4,
-      tags: Array.isArray(data.tags) ? data.tags : [],
-      comments: [],
-      assignee: data.assignee || {
-        _id: user?._id || '66a1bf9823e4d5c6b7a89003',
-        name: actorName,
-        avatar: actorAvatar,
-        role: user?.role || 'developer',
-      },
-    };
-
-    setTasks((prev) => {
-      const updated = [tempTask, ...prev];
-      saveCachedTasks(targetProjectId, updated);
-      return updated;
     });
-
-    // Broadcast instant notification to all users
-    emitInstantNotification({
-      title: 'New Sprint Task Logged',
-      message: `${actorName} created "${tempTask.title}" (${tempTask.priority.toUpperCase()}) assigned to ${tempTask.assignee?.name || actorName}.`,
-      type: 'task',
-      actorName,
-      actorAvatar,
-    });
-
-    try {
-      const res = await api.tasks.create({
-        ...data,
-        projectId: targetProjectId,
-      });
-      if (res.success) {
-        triggerNotificationRefresh();
-        await loadProjectTasks(targetProjectId);
-        await loadProjects();
-        await loadAnalytics();
-      }
-    } catch {
-      // Keep optimistic state and cached state
+    if (!res.success) {
+      throw new Error(res.message || 'Could not create issue.');
     }
+    triggerNotificationRefresh();
+    await loadProjectTasks(targetProjectId);
+    await loadProjects();
+    await loadAnalytics();
   };
 
   const updateTaskColumn = async (
     taskId: string,
-    newColumn: 'backlog' | 'in_progress' | 'in_review' | 'completed'
+    newColumn: 'backlog' | 'in_progress' | 'in_review' | 'completed',
+    overrideQa = false
   ) => {
     if (!user) {
       throw new Error('Authentication required: Please sign in to update tasks.');
     }
-    const targetTask = tasks.find((t) => t._id === taskId);
-    const actorName = user.name;
-    const actorAvatar =
-      user.avatar ||
-      'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=64&h=64&q=80';
-
-    setTasks((prev) => {
-      const updated = prev.map((t) => (t._id === taskId ? { ...t, column: newColumn } : t));
-      if (activeProject?._id) {
-        saveCachedTasks(activeProject._id, updated);
-      }
-      return updated;
+    await api.tasks.update(taskId, {
+      column: newColumn,
+      ...(overrideQa ? { overrideQa: true } : {}),
     });
-
-    const colLabel =
-      newColumn === 'completed'
-        ? 'Done'
-        : newColumn === 'in_review'
-        ? 'In Review (QA)'
-        : newColumn === 'in_progress'
-        ? 'In Progress'
-        : 'Backlog';
-
-    // Broadcast instant notification to all users
-    emitInstantNotification({
-      title: `Issue Moved to ${colLabel}`,
-      message: `${actorName} moved "${targetTask?.title || 'Issue'}" to ${colLabel}.`,
-      type: 'task',
-      actorName,
-      actorAvatar,
-    });
-
-    try {
-      await api.tasks.update(taskId, { column: newColumn });
-      triggerNotificationRefresh();
-      if (activeProject?._id) {
-        await loadProjectTasks(activeProject._id);
-      }
-      await loadProjects();
-      await loadAnalytics();
-    } catch {
-      // Keep optimistic state and cache
+    triggerNotificationRefresh();
+    if (activeProject?._id) {
+      await loadProjectTasks(activeProject._id);
     }
+    await loadProjects();
+    await loadAnalytics();
   };
 
   const deleteTask = async (taskId: string) => {
     if (!user) {
       throw new Error('Authentication required: Please sign in to delete tasks.');
     }
-    const targetTask = tasks.find((t) => t._id === taskId);
-    const actorName = user.name;
-    const actorAvatar =
-      user.avatar ||
-      'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=64&h=64&q=80';
-
-    setTasks((prev) => {
-      const updated = prev.filter((t) => t._id !== taskId);
-      if (activeProject?._id) {
-        saveCachedTasks(activeProject._id, updated);
-      }
-      return updated;
-    });
-
-    emitInstantNotification({
-      title: 'Issue Removed',
-      message: `${actorName} deleted issue "${targetTask?.title || 'Issue'}".`,
-      type: 'task',
-      actorName,
-      actorAvatar,
-    });
-
-    try {
-      await api.tasks.delete(taskId);
-      triggerNotificationRefresh();
-      if (activeProject?._id) {
-        await loadProjectTasks(activeProject._id);
-      }
-      await loadProjects();
-      await loadAnalytics();
-    } catch {
-      // Ignore error
+    await api.tasks.delete(taskId);
+    triggerNotificationRefresh();
+    if (activeProject?._id) {
+      await loadProjectTasks(activeProject._id);
     }
+    await loadProjects();
+    await loadAnalytics();
   };
 
   const addComment = async (taskId: string, text: string) => {
     if (!user) {
       throw new Error('Authentication required: Please sign in to comment.');
     }
-    const targetTask = tasks.find((t) => t._id === taskId);
-    const actorName = user.name;
-    const actorAvatar =
-      user?.avatar ||
-      'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=64&h=64&q=80';
-
-    const newComment = {
-      id: `c-${Date.now()}`,
-      userId: user?._id || '1',
-      userName: actorName,
-      userAvatar: actorAvatar,
-      text,
-      createdAt: new Date().toISOString(),
-    };
-
-    setTasks((prev) => {
-      const updated = prev.map((t) =>
-        t._id === taskId
-          ? { ...t, comments: [...(t.comments || []), newComment] }
-          : t
-      );
-      if (activeProject?._id) {
-        saveCachedTasks(activeProject._id, updated);
-      }
-      return updated;
-    });
-
-    emitInstantNotification({
-      title: `New Comment on "${targetTask?.title || 'Issue'}"`,
-      message: `${actorName}: "${text}"`,
-      type: 'task',
-      actorName,
-      actorAvatar,
-    });
-
-    try {
-      await api.tasks.addComment(taskId, text);
-      triggerNotificationRefresh();
-      if (activeProject?._id) {
-        await loadProjectTasks(activeProject._id);
-      }
-    } catch {
-      // Keep optimistic comment
+    await api.tasks.addComment(taskId, text);
+    triggerNotificationRefresh();
+    if (activeProject?._id) {
+      await loadProjectTasks(activeProject._id);
     }
   };
 
@@ -479,22 +343,22 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
   };
 
   const updateTaskDetails = async (taskId: string, updates: Partial<Task>) => {
-    if (!user) return;
-    setTasks((prev) => {
-      const updated = prev.map((t) => (t._id === taskId ? { ...t, ...updates } : t));
-      if (activeProject?._id) {
-        saveCachedTasks(activeProject._id, updated);
-      }
-      return updated;
-    });
-    try {
-      await api.tasks.update(taskId, updates);
-      triggerNotificationRefresh();
-      if (activeProject?._id) {
-        await loadProjectTasks(activeProject._id);
-      }
-    } catch {
-      // Keep optimistic update
+    if (!user) {
+      throw new Error('Authentication required: Please sign in to update tasks.');
+    }
+    const editableUpdates = {
+      ...(updates.column !== undefined ? { column: updates.column } : {}),
+      ...(updates.priority !== undefined ? { priority: updates.priority } : {}),
+      ...(updates.title !== undefined ? { title: updates.title } : {}),
+      ...(updates.description !== undefined ? { description: updates.description } : {}),
+      ...(updates.estimateHours !== undefined ? { estimateHours: updates.estimateHours } : {}),
+      ...(updates.tags !== undefined ? { tags: updates.tags } : {}),
+      ...(updates.assigneeId !== undefined ? { assigneeId: updates.assigneeId } : {}),
+    };
+    await api.tasks.update(taskId, editableUpdates);
+    triggerNotificationRefresh();
+    if (activeProject?._id) {
+      await loadProjectTasks(activeProject._id);
     }
   };
 

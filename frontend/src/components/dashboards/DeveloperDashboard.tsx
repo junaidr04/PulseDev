@@ -67,13 +67,13 @@ export const DeveloperDashboard: React.FC<RoleCockpitProps> = ({
   onOpenNewTask,
   updateTaskColumn,
 }) => {
-  // Identify Marcus's assigned issues (or fallback to tasks list)
+  // Keep the developer queue scoped to issues assigned to the authenticated user.
   const myTasks = tasks.filter(
     (t) =>
       t.assigneeId === user?._id ||
       t.assignee?.name?.toLowerCase() === (user?.name || 'marcus vance').toLowerCase()
   );
-  const displayTasks = myTasks.length > 0 ? myTasks : tasks;
+  const displayTasks = myTasks;
 
   const [selectedTaskIndex, setSelectedTaskIndex] = useState<number>(0);
   const [timerRunning, setTimerRunning] = useState<boolean>(true);
@@ -152,9 +152,14 @@ export const DeveloperDashboard: React.FC<RoleCockpitProps> = ({
 
   const handleSubmitForQa = async () => {
     if (!focusTask) return;
-    await updateTaskColumn(focusTask._id, 'in_review');
-    setSubmittedNotice(`${issueCode} submitted to Sophia Laurent's QA Queue`);
-    setTimeout(() => setSubmittedNotice(null), 3500);
+    try {
+      await updateTaskColumn(focusTask._id, 'in_review');
+      setSubmittedNotice(`${issueCode} submitted to Sophia Laurent's QA Queue`);
+      setTimeout(() => setSubmittedNotice(null), 3500);
+    } catch (error) {
+      setSubmittedNotice(error instanceof Error ? error.message : 'Could not submit this issue to QA.');
+      setTimeout(() => setSubmittedNotice(null), 3500);
+    }
   };
 
   const completedSubtasks = subtasks.filter((s) => s.done).length;
@@ -175,7 +180,7 @@ export const DeveloperDashboard: React.FC<RoleCockpitProps> = ({
               </div>
               <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight">
                 {focusTask?.title ||
-                  'Payment Webhook Delivery Queue with Exponential Backoff'}
+                  'No issue is currently assigned to you.'}
               </h2>
             </div>
 
@@ -243,6 +248,7 @@ export const DeveloperDashboard: React.FC<RoleCockpitProps> = ({
                 variant="accent"
                 accentColor="#22D3EE"
                 onClick={handleSubmitForQa}
+                disabled={!focusTask || focusTask.column === 'in_review' || focusTask.column === 'completed'}
               />
             </div>
           </div>

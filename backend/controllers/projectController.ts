@@ -155,13 +155,56 @@ export const createTask = async (req: AuthRequest, res: Response) => {
       return res.status(401).json({ success: false, message: 'Authentication required.' });
     }
 
-    const { projectId, title, description, column = 'backlog', priority = 'medium', assigneeId, estimateHours = 4, tags = [] } = req.body;
+    const {
+      projectId,
+      title,
+      description,
+      column = 'backlog',
+      priority = 'medium',
+      assigneeId,
+      estimateHours = 4,
+      tags = [],
+      overrideQa,
+    } = req.body;
 
     if (!projectId || !title) {
       return res.status(400).json({ success: false, message: 'ProjectId and title are required.' });
     }
-
-    const verifiedAssigneeId = assigneeId || req.user._id;
+    if (overrideQa !== undefined && typeof overrideQa !== 'boolean') {
+      return res.status(400).json({ success: false, message: 'The QA override confirmation is invalid.' });
+    }
+    if (
+      column === 'completed' &&
+      (req.user.role !== 'admin' || overrideQa !== true)
+    ) {
+      return res.status(403).json({
+        success: false,
+        message: req.user.role === 'admin'
+          ? 'This issue has no QA pass. Confirm the QA override before shipping.'
+          : 'Only QA can pass an issue and move it to Done.',
+      });
+    }
+    if (!['backlog', 'in_progress', 'in_review', 'completed'].includes(column)) {
+      return res.status(400).json({ success: false, message: 'Choose a valid initial issue status.' });
+    }
+    if (
+      req.user.role !== 'admin' &&
+      column !== undefined &&
+      column !== 'backlog'
+    ) {
+      return res.status(403).json({
+        success: false,
+        message: 'Only Admin can choose an initial issue status. New team issues start in Backlog.',
+      });
+    }
+    const canAssignToTeam = req.user.role === 'admin' || req.user.role === 'lead';
+    const verifiedAssigneeId = canAssignToTeam && assigneeId ? assigneeId : req.user._id;
+    if (canAssignToTeam) {
+      const assignee = await db.users.findById(verifiedAssigneeId);
+      if (!assignee) {
+        return res.status(400).json({ success: false, message: 'The selected assignee is not a team member.' });
+      }
+    }
 
     const task = await db.tasks.create({
       projectId,
@@ -177,12 +220,14 @@ export const createTask = async (req: AuthRequest, res: Response) => {
     });
 
     await db.auditLogs.create({
-      action: 'TASK_CREATE',
+      action: column === 'completed' ? 'TASK_QA_OVERRIDE_SHIP' : 'TASK_CREATE',
       entityType: 'Task',
       entityId: task._id,
       performedBy: req.user?._id || 'system',
       performedByName: req.user?.name || 'System',
-      details: `Created task '${task.title}' in column '${task.column}'`,
+      details: column === 'completed'
+        ? `Admin override: created '${task.title}' in Done without a QA pass.`
+        : `Created task '${task.title}' in column '${task.column}'`,
       ipAddress: req.ip || '127.0.0.1',
     });
 
@@ -222,60 +267,132 @@ export const updateTask = async (req: AuthRequest, res: Response) => {
     const userRole = req.user?.role || 'developer';
     const userId = req.user?._id || '';
     const isAdmin = userRole === 'admin';
+    const updates = req.body && typeof req.body === 'object' ? req.body : {};
+    const allowedFields: Record<string, string[]> = {
+      admin: ['column', 'priority', 'title', 'description', 'estimateHours', 'tags', 'assigneeId', 'overrideQa'],
+      lead: ['column', 'priority', 'assigneeId'],
+      developer: ['column'],
+      guest: ['priority', 'description', 'tags'],
+      qa: [],
+    };
+    const roleFields = allowedFields[userRole] || [];
+    const unsupportedFields = Object.keys(updates).filter((field) => !roleFields.includes(field));
+    if (unsupportedFields.length > 0) {
+      const message =
+        userRole === 'qa'
+          ? 'QA must use Pass or Reject on issues in review; other task edits are not permitted.'
+          : `Your role cannot update: ${unsupportedFields.join(', ')}.`;
+      return res.status(403).json({ success: false, message });
+    }
 
-    if (userRole === 'qa' && task.column === 'in_review' && req.body.column === 'in_progress') {
-      return res.status(400).json({
+    if (updates.column !== undefined) {
+      const columns = ['backlog', 'in_progress', 'in_review', 'completed'];
+      if (typeof updates.column !== 'string' || !columns.includes(updates.column)) {
+        return res.status(400).json({ success: false, message: 'Choose a valid issue status.' });
+      }
+    }
+    if (updates.priority !== undefined) {
+      const priorities = ['low', 'medium', 'high', 'critical'];
+      if (typeof updates.priority !== 'string' || !priorities.includes(updates.priority)) {
+        return res.status(400).json({ success: false, message: 'Choose a valid issue priority.' });
+      }
+    }
+    if (updates.tags !== undefined && (!Array.isArray(updates.tags) || updates.tags.some((tag: unknown) => typeof tag !== 'string'))) {
+      return res.status(400).json({ success: false, message: 'Issue scope tags must be a list of text values.' });
+    }
+
+    if (userRole === 'developer' && task.assigneeId !== userId) {
+      return res.status(403).json({ success: false, message: 'Developers can only move their own assigned issues.' });
+    }
+    const nonDoneColumns = ['backlog', 'in_progress', 'in_review'];
+    if (
+      (userRole === 'lead' || userRole === 'developer') &&
+      updates.column !== undefined &&
+      (!nonDoneColumns.includes(task.column) || !nonDoneColumns.includes(updates.column))
+    ) {
+      return res.status(403).json({
         success: false,
-        message: 'Use the Reject action and provide a reason to return this issue to its owner.',
+        message: userRole === 'lead'
+          ? 'Needs QA pass first. Leads can move issues through Backlog, In Progress, and In Review; QA controls returns from review.'
+          : 'Developers can move their own issues through Backlog, In Progress, and In Review; QA controls returns from review.',
+      });
+    }
+    if (
+      userRole === 'developer' &&
+      updates.column === 'completed'
+    ) {
+      return res.status(403).json({ success: false, message: 'Developers cannot ship issues. Submit them to QA for review first.' });
+    }
+    if (
+      task.column === 'in_review' &&
+      updates.column !== undefined &&
+      updates.column !== 'in_review' &&
+      updates.column !== 'completed' &&
+      !isAdmin
+    ) {
+      return res.status(403).json({
+        success: false,
+        message: 'Only QA can reject an issue from In Review, and a rejection reason is required.',
+      });
+    }
+    if (userRole === 'qa' && updates.column !== undefined) {
+      return res.status(403).json({ success: false, message: 'Use Pass or Reject with a reason to complete QA review.' });
+    }
+
+    if (updates.assigneeId !== undefined) {
+      if (typeof updates.assigneeId !== 'string' || !updates.assigneeId) {
+        return res.status(400).json({ success: false, message: 'Choose a valid team member to assign this issue to.' });
+      }
+      const assignee = await db.users.findById(updates.assigneeId);
+      if (!assignee) {
+        return res.status(400).json({ success: false, message: 'The selected assignee is not a team member.' });
+      }
+    }
+
+    if (updates.overrideQa !== undefined && typeof updates.overrideQa !== 'boolean') {
+      return res.status(400).json({ success: false, message: 'The QA override confirmation is invalid.' });
+    }
+    const isShippingWithoutQaPass = updates.column === 'completed' && task.column !== 'completed';
+    if (isShippingWithoutQaPass && !isAdmin) {
+      return res.status(403).json({
+        success: false,
+        message: userRole === 'lead'
+          ? 'Needs QA pass first. Only QA can pass and ship an issue.'
+          : 'Only QA can pass an issue and move it to Done.',
+      });
+    }
+    if (isShippingWithoutQaPass && isAdmin && updates.overrideQa !== true) {
+      return res.status(403).json({
+        success: false,
+        message: 'This issue has no QA pass. Confirm the QA override before shipping.',
       });
     }
 
-    // Non-admin users can control their own assigned tasks (or QA verifying in_review tasks)
-    if (!isAdmin) {
-      const isOwner = task.assigneeId === userId;
-      const isQaReviewing = userRole === 'qa' && task.column === 'in_review';
-
-      if (!isOwner && !isQaReviewing) {
-        const assigneeUser = await db.users.findById(task.assigneeId);
-        return res.status(403).json({
-          success: false,
-          message: `Access Restricted: This task is assigned to ${assigneeUser?.name || 'another member'}. Only the assigned owner or Admin can control this task.`,
-        });
-      }
-
-      if ((userRole === 'developer' || userRole === 'lead') && req.body.column === 'completed') {
-        return res.status(403).json({
-          success: false,
-          message: 'Role Restriction: Only QA Lead, Product Manager, or Admin can mark tasks as Done.',
-        });
-      }
-    }
-
     const safeUpdates: Record<string, any> = {};
-    if (typeof req.body.title === 'string') safeUpdates.title = req.body.title;
-    if (typeof req.body.description === 'string') safeUpdates.description = req.body.description;
-    if (typeof req.body.column === 'string') safeUpdates.column = req.body.column;
-    if (typeof req.body.priority === 'string') safeUpdates.priority = req.body.priority;
-    if (typeof req.body.estimateHours === 'number') safeUpdates.estimateHours = req.body.estimateHours;
-    if (Array.isArray(req.body.tags)) safeUpdates.tags = req.body.tags;
-    if (
-      userRole === 'qa' &&
-      task.column === 'in_review' &&
-      req.body.column === 'completed' &&
-      task.rejectionActive
-    ) {
+    if (typeof updates.title === 'string') safeUpdates.title = updates.title.trim();
+    if (typeof updates.description === 'string') safeUpdates.description = updates.description;
+    if (typeof updates.column === 'string') safeUpdates.column = updates.column;
+    if (typeof updates.priority === 'string') safeUpdates.priority = updates.priority;
+    if (typeof updates.estimateHours === 'number' && Number.isFinite(updates.estimateHours)) {
+      safeUpdates.estimateHours = updates.estimateHours;
+    }
+    if (Array.isArray(updates.tags)) safeUpdates.tags = updates.tags;
+    if (isAdmin || userRole === 'lead') {
+      if (typeof updates.assigneeId === 'string') safeUpdates.assigneeId = updates.assigneeId;
+    }
+    if (userRole === 'qa' && task.column === 'in_review' && updates.column === 'completed' && task.rejectionActive) {
       safeUpdates.rejectionActive = false;
     }
-    if ((isAdmin || userRole === 'lead') && typeof req.body.assigneeId === 'string') {
-      safeUpdates.assigneeId = req.body.assigneeId;
+    if (Object.keys(safeUpdates).length === 0) {
+      return res.status(400).json({ success: false, message: 'No valid task changes were provided.' });
     }
 
     const updated = await db.tasks.findByIdAndUpdate(id, safeUpdates, { new: true });
 
-    if (req.body.column && req.body.column !== task.column) {
+    if (updates.column && updates.column !== task.column) {
       await db.notifications.create({
-        title: `Task Moved to ${req.body.column.replace('_', ' ').toUpperCase()}`,
-        message: `${req.user?.name || 'Engineer'} moved "${task.title}" to ${req.body.column.replace('_', ' ')}.`,
+        title: `Task Moved to ${updates.column.replace('_', ' ').toUpperCase()}`,
+        message: `${req.user?.name || 'Engineer'} moved "${task.title}" to ${updates.column.replace('_', ' ')}.`,
         type: 'task',
         read: false,
         actorName: req.user?.name || 'Engineer',
@@ -283,12 +400,14 @@ export const updateTask = async (req: AuthRequest, res: Response) => {
       });
 
       await db.auditLogs.create({
-        action: 'TASK_MOVE',
+        action: isShippingWithoutQaPass ? 'TASK_QA_OVERRIDE_SHIP' : 'TASK_MOVE',
         entityType: 'Task',
         entityId: task._id,
         performedBy: req.user?._id || 'system',
         performedByName: req.user?.name || 'System',
-        details: `Moved '${task.title}' from ${task.column} to ${req.body.column}`,
+        details: isShippingWithoutQaPass
+          ? `Admin override: shipped '${task.title}' from ${task.column} to completed without a QA pass.`
+          : `Moved '${task.title}' from ${task.column} to ${updates.column}`,
         ipAddress: req.ip || '127.0.0.1',
       });
     }
@@ -474,10 +593,10 @@ export const approveTask = async (req: AuthRequest, res: Response) => {
 export const deleteTask = async (req: AuthRequest, res: Response) => {
   try {
     const userRole = req.user?.role || 'developer';
-    if (userRole !== 'admin' && userRole !== 'lead') {
+    if (userRole !== 'admin') {
       return res.status(403).json({
         success: false,
-        message: 'RBAC Denied: Only Principal Architect (Admin) or Staff Lead can delete tasks.',
+        message: 'Only an Admin can delete issues.',
       });
     }
 

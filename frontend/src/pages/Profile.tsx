@@ -71,6 +71,14 @@ const FALLBACK_TEAM = [
   },
 ];
 
+const SPRINT_ROLE_RIGHTS = [
+  { role: 'Admin · Alex', rights: 'Manage all issues; ship without QA only after confirming. Overrides are audited.' },
+  { role: 'Lead · Priya', rights: 'Reassign, reprioritize, comment, and move issues through Backlog, In Progress, and In Review; QA controls returns from review.' },
+  { role: 'Developer · Marcus', rights: 'Move own issues through Backlog, In Progress, and In Review; QA controls returns from review.' },
+  { role: 'QA · Sophia', rights: 'Pass or Reject issues in In Review; rejection requires a reason.' },
+  { role: 'Product Manager · Jordan', rights: 'Edit priority and issue scope; cannot move issues between statuses.' },
+];
+
 interface ProfileProps {
   onNavigate?: (route: string) => void;
 }
@@ -361,6 +369,7 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigate }) => {
           {/* Right Column: Team Directory OR Profile & Password Settings */}
           <div className="lg:col-span-8 space-y-6">
             {activeTab === 'directory' ? (
+              <>
               <div className="rounded-xl border border-white/[0.07] bg-[#111317] overflow-hidden">
                 <div className="border-b border-white/[0.07] px-5 py-3.5 flex items-center justify-between">
                   <div>
@@ -447,6 +456,35 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigate }) => {
                   })}
                 </div>
               </div>
+              <div className="rounded-xl border border-white/[0.07] bg-[#111317] p-5">
+                <div className="mb-3 border-b border-white/[0.07] pb-3">
+                  <h3 className="text-[13px] font-semibold text-white">Sprint Board Permissions</h3>
+                  <p className="mt-0.5 text-[11px] text-neutral-500">
+                    Status changes and issue actions are enforced by role.
+                  </p>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[520px] text-left text-xs">
+                    <thead className="text-[10px] uppercase tracking-wide text-neutral-500">
+                      <tr>
+                        <th className="pb-2 pr-4 font-medium">Role</th>
+                        <th className="pb-2 font-medium">Sprint board rights</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/[0.06]">
+                      {SPRINT_ROLE_RIGHTS.map((item) => (
+                        <tr key={item.role}>
+                          <th scope="row" className="py-2.5 pr-4 align-top font-medium text-neutral-200">
+                            {item.role}
+                          </th>
+                          <td className="py-2.5 leading-relaxed text-neutral-400">{item.rights}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+              </>
             ) : (
               <div className="space-y-6">
                 {/* Card 1: Profile Details */}
