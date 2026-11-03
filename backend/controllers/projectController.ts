@@ -691,7 +691,7 @@ export const addTaskComment = async (req: AuthRequest, res: Response) => {
 };
 
 /**
- * @desc    Aggregated analytics via MongoDB Aggregation Pipeline simulator
+ * @desc    Aggregated analytics via MongoDB aggregation pipelines
  * @route   GET /api/projects/analytics
  * @access  Private
  */

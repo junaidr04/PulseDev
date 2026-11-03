@@ -1,7 +1,16 @@
 import bcrypt from 'bcryptjs';
 import { randomBytes } from 'crypto';
-import fs from 'fs';
-import path from 'path';
+import mongoose from 'mongoose';
+import { MongoCollection } from './mongoCollection.js';
+import {
+  AuditLogModel,
+  MessageModel,
+  NotificationModel,
+  ProjectModel,
+  TaskModel,
+  UserModel,
+  collectionModels,
+} from './models.js';
 
 export interface BaseDocument {
   _id: string;
@@ -109,306 +118,41 @@ export interface NotificationDoc extends BaseDocument {
 
 // Generate a 24-character hexadecimal identifier.
 export function generateObjectId(): string {
-  const timestamp = Math.floor(Date.now() / 1000).toString(16).padStart(8, '0');
-  const machine = Math.floor(Math.random() * 0xffffff).toString(16).padStart(6, '0');
-  const pid = Math.floor(Math.random() * 0xffff).toString(16).padStart(4, '0');
-  const counter = Math.floor(Math.random() * 0xffffff).toString(16).padStart(6, '0');
-  return `${timestamp}${machine}${pid}${counter}`.toLowerCase();
+  return new mongoose.Types.ObjectId().toHexString();
 }
 
-// Keep collection documents in memory and persist changes to a local JSON file.
-export class JsonFileCollection<T extends BaseDocument> {
-  public name: string;
-  private documents: Map<string, T> = new Map();
-  private indexes: Set<string> = new Set(['_id']);
-  private persistFilePath?: string;
-
-  constructor(name: string, indexFields: string[] = [], persistFilePath?: string) {
-    this.name = name;
-    indexFields.forEach((f) => this.indexes.add(f));
-    this.persistFilePath = persistFilePath;
-    this.loadFromDisk();
-  }
-
-  private loadFromDisk(): void {
-    if (!this.persistFilePath) return;
-    try {
-      if (fs.existsSync(this.persistFilePath)) {
-        const raw = fs.readFileSync(this.persistFilePath, 'utf-8');
-        const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed)) {
-          parsed.forEach((item: any) => {
-            if (item && item._id) {
-              this.documents.set(item._id, {
-                ...item,
-                createdAt: item.createdAt ? new Date(item.createdAt) : new Date(),
-                updatedAt: item.updatedAt ? new Date(item.updatedAt) : new Date(),
-              } as T);
-            }
-          });
-        }
-      }
-    } catch (error) {
-      throw new Error(`Could not load ${this.name} data from ${this.persistFilePath}.`, {
-        cause: error,
-      });
-    }
-  }
-
-  private saveToDisk(): void {
-    if (!this.persistFilePath) return;
-    const dir = path.dirname(this.persistFilePath);
-    fs.mkdirSync(dir, { recursive: true });
-    const tempPath = `${this.persistFilePath}.${process.pid}.tmp`;
-    const list = Array.from(this.documents.values());
-    fs.writeFileSync(tempPath, JSON.stringify(list, null, 2), 'utf-8');
-    fs.renameSync(tempPath, this.persistFilePath);
-  }
-
-  getIndexes(): string[] {
-    return Array.from(this.indexes);
-  }
-
-  async find(filter: Record<string, any> = {}): Promise<T[]> {
-    const all = Array.from(this.documents.values());
-    if (Object.keys(filter).length === 0) {
-      return all.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-    }
-
-    return all.filter((doc) => {
-      for (const [key, val] of Object.entries(filter)) {
-        if (key === '$or' && Array.isArray(val)) {
-          const matchOr = val.some((subFilter) =>
-            Object.entries(subFilter).every(([k, v]) => (doc as any)[k] === v)
-          );
-          if (!matchOr) return false;
-          continue;
-        }
-
-        const docVal = (doc as any)[key];
-        if (typeof val === 'object' && val !== null) {
-          if ('$regex' in val) {
-            const re = new RegExp(val.$regex, val.$options || 'i');
-            if (!re.test(String(docVal || ''))) return false;
-          } else if ('$in' in val && Array.isArray(val.$in)) {
-            if (!val.$in.includes(docVal)) return false;
-          } else if ('$ne' in val) {
-            if (docVal === val.$ne) return false;
-          }
-        } else if (docVal !== val) {
-          return false;
-        }
-      }
-      return true;
-    }).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-  }
-
-  async findById(id: string): Promise<T | null> {
-    return this.documents.get(id) || null;
-  }
-
-  async findOne(filter: Record<string, any>): Promise<T | null> {
-    const list = await this.find(filter);
-    return list.length > 0 ? list[0] : null;
-  }
-
-  async create(data: Partial<T>): Promise<T> {
-    const now = new Date();
-    const _id = data._id || generateObjectId();
-    const doc = {
-      ...data,
-      _id,
-      createdAt: data.createdAt || now,
-      updatedAt: now,
-    } as T;
-
-    this.documents.set(_id, doc);
-    try {
-      this.saveToDisk();
-    } catch (error) {
-      this.documents.delete(_id);
-      throw error;
-    }
-    return doc;
-  }
-
-  async findByIdAndUpdate(id: string, update: Partial<T>, options: { new?: boolean } = { new: true }): Promise<T | null> {
-    const existing = this.documents.get(id);
-    if (!existing) return null;
-
-    const updated = {
-      ...existing,
-      ...update,
-      _id: id,
-      updatedAt: new Date(),
-    } as T;
-
-    this.documents.set(id, updated);
-    try {
-      this.saveToDisk();
-    } catch (error) {
-      this.documents.set(id, existing);
-      throw error;
-    }
-    return options.new ? updated : existing;
-  }
-
-  async findByIdAndDelete(id: string): Promise<T | null> {
-    const existing = this.documents.get(id);
-    if (!existing) return null;
-    this.documents.delete(id);
-    try {
-      this.saveToDisk();
-    } catch (error) {
-      this.documents.set(id, existing);
-      throw error;
-    }
-    return existing;
-  }
-
-  removeFieldFromAll(field: keyof T): void {
-    let changed = false;
-    for (const document of this.documents.values()) {
-      if (Object.prototype.hasOwnProperty.call(document, field)) {
-        Reflect.deleteProperty(document, field);
-        changed = true;
-      }
-    }
-    if (changed) this.saveToDisk();
-  }
-
-  async countDocuments(filter: Record<string, any> = {}): Promise<number> {
-    const list = await this.find(filter);
-    return list.length;
-  }
-
-  // Supports a subset of aggregation stages for the local JSON-backed store.
-  async aggregate(pipeline: Array<Record<string, any>>): Promise<any[]> {
-    let results: any[] = Array.from(this.documents.values()).map((d) => ({ ...d }));
-
-    for (const stage of pipeline) {
-      if ('$match' in stage) {
-        const matchFilter = stage.$match;
-        results = results.filter((doc) => {
-          for (const [key, val] of Object.entries(matchFilter)) {
-            if ((doc as any)[key] !== val) return false;
-          }
-          return true;
-        });
-      } else if ('$group' in stage) {
-        const groupConfig = stage.$group;
-        const idField = groupConfig._id;
-        const groups: Map<string, any> = new Map();
-
-        for (const doc of results) {
-          let groupKey = 'all';
-          if (typeof idField === 'string' && idField.startsWith('$')) {
-            groupKey = String(doc[idField.substring(1)] || 'null');
-          }
-
-          if (!groups.has(groupKey)) {
-            const initial: any = { _id: groupKey };
-            for (const [field, acc] of Object.entries(groupConfig)) {
-              if (field === '_id') continue;
-              if (typeof acc === 'object' && acc !== null) {
-                if ('$sum' in acc) initial[field] = 0;
-                else if ('$avg' in acc) { initial[field] = 0; initial[`__cnt_${field}`] = 0; }
-                else if ('$push' in acc) initial[field] = [];
-              }
-            }
-            groups.set(groupKey, initial);
-          }
-
-          const current = groups.get(groupKey);
-          for (const [field, acc] of Object.entries(groupConfig)) {
-            if (field === '_id') continue;
-            if (typeof acc === 'object' && acc !== null) {
-              if ('$sum' in acc) {
-                const addVal = acc.$sum === 1 ? 1 : Number(doc[String(acc.$sum).replace('$', '')] || 0);
-                current[field] += addVal;
-              } else if ('$push' in acc) {
-                const pushVal = doc[String(acc.$push).replace('$', '')];
-                current[field].push(pushVal);
-              }
-            }
-          }
-        }
-        results = Array.from(groups.values());
-      } else if ('$sort' in stage) {
-        const sortFields = stage.$sort;
-        results.sort((a, b) => {
-          for (const [key, dir] of Object.entries(sortFields)) {
-            const aVal = a[key];
-            const bVal = b[key];
-            if (aVal !== bVal) {
-              return (dir as number) > 0 ? (aVal > bVal ? 1 : -1) : (aVal < bVal ? 1 : -1);
-            }
-          }
-          return 0;
-        });
-      } else if ('$limit' in stage) {
-        results = results.slice(0, stage.$limit);
-      }
-    }
-
-    return results;
-  }
-
-  // Clear collection
-  clear(): void {
-    const previousDocuments = new Map(this.documents);
-    this.documents.clear();
-    try {
-      this.saveToDisk();
-    } catch (error) {
-      this.documents = previousDocuments;
-      throw error;
-    }
-  }
-}
-
-// Local JSON-backed collection registry.
-class JsonFileStore {
-  public users = new JsonFileCollection<UserDoc>(
-    'users',
-    ['email', 'role'],
-    path.resolve(process.cwd(), 'backend', 'data', 'users.json')
-  );
-  public projects = new JsonFileCollection<ProjectDoc>(
-    'projects',
-    ['key', 'status', 'leadId'],
-    path.resolve(process.cwd(), 'backend', 'data', 'projects.json')
-  );
-  public tasks = new JsonFileCollection<TaskDoc>(
-    'tasks',
-    ['projectId', 'column', 'priority', 'assigneeId'],
-    path.resolve(process.cwd(), 'backend', 'data', 'tasks.json')
-  );
-  public auditLogs = new JsonFileCollection<AuditLogDoc>(
-    'auditLogs',
-    ['entityType', 'performedBy', 'createdAt'],
-    path.resolve(process.cwd(), 'backend', 'data', 'auditLogs.json')
-  );
-  public messages = new JsonFileCollection<MessageDoc>(
-    'messages',
-    ['channel', 'createdAt'],
-    path.resolve(process.cwd(), 'backend', 'data', 'messages.json')
-  );
-  public notifications = new JsonFileCollection<NotificationDoc>(
-    'notifications',
-    ['recipientRole', 'type', 'read'],
-    path.resolve(process.cwd(), 'backend', 'data', 'notifications.json')
-  );
+// Mongoose-backed store for workspace collections.
+class MongoStore {
+  public users = new MongoCollection<UserDoc>('users', UserModel);
+  public projects = new MongoCollection<ProjectDoc>('projects', ProjectModel);
+  public tasks = new MongoCollection<TaskDoc>('tasks', TaskModel);
+  public auditLogs = new MongoCollection<AuditLogDoc>('auditLogs', AuditLogModel);
+  public messages = new MongoCollection<MessageDoc>('messages', MessageModel);
+  public notifications = new MongoCollection<NotificationDoc>('notifications', NotificationModel);
 
   public serverStartTime = new Date();
   public readonly ready: Promise<void>;
 
   constructor() {
-    this.ready = this.seedDatabase();
+    this.ready = this.connectAndSeed();
+  }
+
+  private async connectAndSeed(): Promise<void> {
+    const mongoUri = process.env.MONGO_URI?.trim();
+    if (!mongoUri) {
+      throw new Error('MONGO_URI is required. Add your MongoDB Atlas connection string to the root .env file.');
+    }
+
+    await mongoose.connect(mongoUri, {
+      maxPoolSize: 10,
+      serverSelectionTimeoutMS: 10000,
+    });
+    await Promise.all(Object.values(collectionModels).map((model) => model.init()));
+    await this.seedDatabase();
   }
 
   async seedDatabase() {
-    this.users.removeFieldFromAll('passwordLabel');
+    await this.users.removeFieldFromAll('passwordLabel');
     const salt = await bcrypt.genSalt(10);
 
     const coreAccounts: Array<{
@@ -530,7 +274,7 @@ class JsonFileStore {
       return;
     }
 
-    console.log('[Storage] Initializing local JSON collections...');
+    console.log('[Storage] Initializing MongoDB workspace collections...');
 
     // Seed High-Impact Enterprise Projects
     const p1 = await this.projects.create({
@@ -797,7 +541,7 @@ class JsonFileStore {
       });
     }
 
-    console.log('[Storage] Demo data seeding completed.');
+    console.log('[Storage] MongoDB demo data seeding completed.');
   }
 
   private async prepareProductionUsers(
@@ -894,42 +638,61 @@ class JsonFileStore {
     console.info('[Auth] Created the initial production administrator account.');
   }
 
-  // Get aggregated stats
+  connectionState(): string {
+    return mongoose.connection.readyState === 1 ? 'connected' : 'disconnected';
+  }
+
   async getStats() {
     const userCount = await this.users.countDocuments();
     const projectCount = await this.projects.countDocuments();
     const taskCount = await this.tasks.countDocuments();
     const auditCount = await this.auditLogs.countDocuments();
+    const messageCount = await this.messages.countDocuments();
+    const notificationCount = await this.notifications.countDocuments();
+    const indexes = await Promise.all([
+      this.users.getIndexes(),
+      this.projects.getIndexes(),
+      this.tasks.getIndexes(),
+      this.auditLogs.getIndexes(),
+      this.messages.getIndexes(),
+      this.notifications.getIndexes(),
+    ]);
 
     return {
-      persistence: 'local-json-files',
-      storageDirectory: 'backend/data',
-      adapter: 'In-memory collections persisted to JSON files',
+      persistence: 'mongodb',
+      database: mongoose.connection.name,
+      connectionState: this.connectionState(),
+      adapter: 'Mongoose',
       uptimeSeconds: Math.floor((Date.now() - this.serverStartTime.getTime()) / 1000),
       collections: [
         {
           name: 'users',
           documents: userCount,
+          indexes: indexes[0],
         },
         {
           name: 'projects',
           documents: projectCount,
+          indexes: indexes[1],
         },
         {
           name: 'tasks',
           documents: taskCount,
+          indexes: indexes[2],
         },
         {
           name: 'auditLogs',
           documents: auditCount,
+          indexes: indexes[3],
         },
+        { name: 'messages', documents: messageCount, indexes: indexes[4] },
+        { name: 'notifications', documents: notificationCount, indexes: indexes[5] },
       ],
-      totalDocuments: userCount + projectCount + taskCount + auditCount,
-      memoryUsageMB: Math.round(process.memoryUsage().heapUsed / 1024 / 1024 * 10) / 10,
+      totalDocuments: userCount + projectCount + taskCount + auditCount + messageCount + notificationCount,
     };
   }
 }
 
 // Global Singleton Instance
-export const db = new JsonFileStore();
+export const db = new MongoStore();
 export default db;

@@ -93,7 +93,7 @@ export const createMessage = async (req: AuthRequest, res: Response) => {
     // Check if the user addressed AI or asked for help
     if (lower.includes('@ai') || lower.includes('copilot') || lower.includes('help')) {
       setTimeout(async () => {
-        let aiAnswer = 'I am your PulseDev Engineering Copilot. All services, Redis queues, and MongoDB connection pools are running optimally in Sprint 44.';
+        let aiAnswer = 'I am your PulseDev Engineering Copilot. I can help with engineering questions, sprint updates, and workspace workflows.';
         if (lower.includes('index') || lower.includes('mongodb')) {
           aiAnswer = 'Tip: Always use the ESR (Equality, Sort, Range) rule for MongoDB compound indexes to avoid COLLSCAN stages on high-traffic queries.';
         } else if (lower.includes('review') || lower.includes('pr')) {

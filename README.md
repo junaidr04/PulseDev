@@ -85,19 +85,28 @@ flowchart LR
     Browser["React + TypeScript UI<br/>Vite, Tailwind CSS"] -->|HTTP / JSON| Express["Express API<br/>server.ts"]
     Express --> Auth["JWT authentication<br/>role & permission checks"]
     Express --> Controllers["Feature controllers<br/>projects, issues, chat, notifications"]
-    Controllers --> Store["JSON-backed local data<br/>backend/data/"]
+    Controllers --> Store["MongoDB Atlas<br/>Mongoose models"]
     Express --> AI["Optional Gemini API"]
 ```
 
 The Express server serves the Vite development middleware during local development. In production mode, it serves the compiled frontend from `dist/` and exposes the same API routes.
 
-### Data persistence: read this before deploying
+### Data persistence
 
-The current data layer is a lightweight, JSON-file-backed collection simulator in `backend/config/db.ts`. It writes workspace data under `backend/data/` and reloads it when the server starts. Its collection API is shaped for familiar document-style operations, but **the application does not currently connect to MongoDB or Mongoose**.
+The backend uses MongoDB through Mongoose. `backend/config/models.ts` defines the six workspace collections (users, projects, tasks, audit logs, messages, and notifications), while `backend/config/db.ts` connects before the API starts and seeds development demo data when needed. The connection string is read from `MONGO_URI`; it is never stored in source code.
 
-This storage approach is convenient for local development and demonstrations. It is not a substitute for a production database: it does not provide database transactions, safe multi-instance writes, managed backups, or horizontal scaling. Back up local data before deleting or replacing `backend/data/`. Before a production or multi-user deployment, replace this adapter with a supported database and plan migration, access control, backup, and recovery.
+The repository ignores `backend/data/`, which may contain local JSON data from an earlier version of PulseDev. To preserve those records, stop the running development server, configure `MONGO_URI`, and run the one-time importer before starting the app:
 
-Docker files are included as deployment scaffolding. The Compose file defines PostgreSQL and Redis services, but the active application data layer does not use them. Starting those containers does not migrate the app's JSON data to PostgreSQL or Redis.
+```bash
+npm run migrate:json-to-mongo
+npm run dev
+```
+
+The importer reads the six JSON collection files and inserts their records in a MongoDB transaction. It refuses to run if any target collection already contains documents, and it leaves the original files unchanged. Back up the JSON files and use an empty MongoDB database for the import. If you have no local JSON data, skip the importer; development startup will create the demo workspace in MongoDB.
+
+For production, configure MongoDB Atlas with a dedicated database user limited to the application's database and restrict Network Access to the application host. Use a unique database password, URL-encode special characters in credentials, and keep the completed connection string in a deployment secret—not in Git or chat. Atlas backups and recovery policies should be configured for any real user data.
+
+Docker files are included as deployment scaffolding. The Compose file defines PostgreSQL and Redis services, but the application uses MongoDB through `MONGO_URI`; starting those containers does not configure or migrate the app's MongoDB data.
 
 ## Technology
 
@@ -107,7 +116,7 @@ Docker files are included as deployment scaffolding. The Compose file defines Po
 | UI | Lucide icons, Motion |
 | Backend | Node.js, TypeScript, Express |
 | Authentication | Signed JWTs, bcrypt password hashing, server-side role and permission checks |
-| Persistence | Local JSON files behind a document-style collection adapter |
+| Persistence | MongoDB Atlas, Mongoose models, indexed collections |
 | AI | Optional Google Gemini integration through `@google/genai` |
 | Container scaffolding | Dockerfiles and Docker Compose configuration |
 
@@ -116,7 +125,8 @@ Docker files are included as deployment scaffolding. The Compose file defines Po
 ```text
 PulseDev/
 ├── backend/
-│   ├── config/          # Persistence adapter and seed/bootstrap logic
+│   ├── config/          # Mongoose models, MongoDB adapter, and seed/bootstrap logic
+│   ├── scripts/         # One-time JSON-to-MongoDB data importer
 │   ├── controllers/     # API handlers for each feature
 │   ├── middleware/      # Authentication, permissions, and error handling
 │   ├── routes/          # Express route definitions
@@ -153,15 +163,17 @@ npm ci
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000). The development server runs the API and frontend together; a separate frontend server is not required.
+Before starting, create a root `.env` file and set `MONGO_URI` to your MongoDB Atlas connection string. Open [http://localhost:3000](http://localhost:3000) after startup. The development server runs the API and frontend together; a separate frontend server is not required.
 
 On first run, development mode seeds a small demonstration workspace and creates a persistent local JWT secret under `backend/data/` if `JWT_SECRET` is not configured. Demo personas are available on the sign-in screen. Use local-only credentials, and change any seeded password before exposing an instance to other people.
 
 ### Environment configuration
 
-Create a root `.env` file for local overrides. Start from `.env.example`, replace placeholders with your own values, and never commit real secrets.
+Create a root `.env` file for local configuration. Start from `.env.example`, replace placeholders with your own values, and never commit real secrets. MongoDB Atlas is required before starting the API:
 
 ```env
+MONGO_URI=mongodb+srv://<username>:<password>@<cluster-url>/pulsedev?retryWrites=true&w=majority
+
 # Optional during local development; a local persistent secret is generated if omitted.
 JWT_SECRET=replace_with_a_long_random_secret
 
@@ -177,12 +189,15 @@ node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
 
 Keep `.env`, API keys, passwords, and generated local data out of public repositories and screenshots. Without `GEMINI_API_KEY`, the app can still run; AI requests may use the feature's built-in fallback response.
 
+To prepare Atlas, create a cluster, add a database user with read/write access to the `pulsedev` database, and allow your development machine's IP in Network Access. Copy the cluster connection string into `MONGO_URI`, replace the username/password/database values, and URL-encode any reserved characters in the username or password. Do not use the Atlas “allow access from anywhere” rule for a deployed application.
+
 ### Production startup configuration
 
 Production mode requires a strong `JWT_SECRET`. To bootstrap the first administrator, set these values in the deployment environment or secret manager before starting the app:
 
 ```env
 NODE_ENV=production
+MONGO_URI=mongodb+srv://<username>:<password>@<cluster-url>/pulsedev?retryWrites=true&w=majority
 JWT_SECRET=<unique high-entropy secret>
 INITIAL_ADMIN_NAME=Workspace Administrator
 INITIAL_ADMIN_EMAIL=admin@example.com
@@ -202,11 +217,12 @@ GET http://localhost:3000/api/system/health
 The repository's validation commands are:
 
 ```bash
+npm test
 npm run lint
 npm run build
 ```
 
-`npm run lint` runs the TypeScript compiler without emitting files. `npm run build` creates the production frontend bundle in `dist/`.
+`npm test` runs the Mongoose schema and database-query guard tests without requiring a live MongoDB instance. `npm run lint` runs the TypeScript compiler without emitting files. `npm run build` creates the production frontend bundle in `dist/`.
 
 ## API overview
 
@@ -225,11 +241,10 @@ All API routes use the `/api` prefix. Protected routes expect a valid signed-in 
 
 ## Project boundaries and next steps
 
-PulseDev is an evolving application rather than a claim of production-ready infrastructure. The current JSON persistence adapter, single-process runtime, demo-oriented workspace data, and non-transactional writes are deliberate limits to understand when evaluating or extending the project.
+PulseDev is an evolving application rather than a claim of production-ready infrastructure. MongoDB provides shared persistence, but deployment still requires production secrets, an appropriately secured Atlas project, backups, monitoring, rate limiting, and operational testing.
 
 Potential next steps include:
 
-- Replace the local JSON adapter with a managed database and add a migration path.
 - Add automated API and end-to-end tests for role permissions, QA transitions, authentication, and failure cases.
 - Add deployment-specific observability, backup and restore procedures, and rate limiting.
 - Review the Docker setup so its services and persistence configuration match the application's actual runtime dependencies.

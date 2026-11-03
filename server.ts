@@ -83,7 +83,7 @@ async function startServer() {
     console.log(`====================================================`);
     console.log(`🚀 PulseDev Workspace Server Active`);
     console.log(`📡 URL: http://0.0.0.0:${PORT}`);
-    console.log(`🗄️  Storage: Local JSON files in backend/data/`);
+    console.log(`🗄️  Storage: MongoDB via Mongoose`);
     console.log(`🔐 JWT Auth: Bearer token validation active`);
     console.log(`🤖 Gemini AI: Thinking Mode (gemini-3.1-pro-preview)`);
     console.log(`====================================================`);

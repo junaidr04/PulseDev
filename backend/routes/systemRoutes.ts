@@ -13,13 +13,16 @@ router.use((req, res, next) => {
 });
 
 router.get('/health', (req: Request, res: Response) => {
-  res.json({
-    status: 'healthy',
+  const connectionState = db.connectionState();
+  const healthy = connectionState === 'connected';
+  res.status(healthy ? 200 : 503).json({
+    status: healthy ? 'healthy' : 'degraded',
     timestamp: new Date().toISOString(),
     uptimeSeconds: Math.floor((Date.now() - startEpoch) / 1000),
     service: 'PulseDev Workspace API',
     version: '2.4.0',
-    persistence: 'local-json-files',
+    persistence: 'mongodb',
+    database: connectionState,
   });
 });
 

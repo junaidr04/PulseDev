@@ -1,30 +1,34 @@
 import { Request, Response } from 'express';
 import db from '../config/db.js';
+import { DatabaseQueryValidationError } from '../config/mongoCollection.js';
+
+const queryCollections = {
+  users: db.users,
+  projects: db.projects,
+  tasks: db.tasks,
+  auditLogs: db.auditLogs,
+};
+
+function isQueryCollection(value: string): value is keyof typeof queryCollections {
+  return Object.hasOwn(queryCollections, value);
+}
 
 /**
- * @desc    Execute a supported query against local workspace collections
+ * @desc    Execute a supported read-only query against MongoDB collections
  * @route   POST /api/database/query
- * @access  Private (or Public for Interview Showcase)
+ * @access  Private (Admin only)
  */
 export const executeMongoQuery = async (req: Request, res: Response) => {
   try {
     const { collection = 'tasks', operation = 'find', filter = {}, pipeline = [] } = req.body;
-    const allowedCollections = ['users', 'projects', 'tasks', 'auditLogs'];
-    if (!allowedCollections.includes(collection)) {
+    if (typeof collection !== 'string' || !isQueryCollection(collection)) {
       return res.status(400).json({
         success: false,
-        message: `Invalid collection: '${collection}'. Available: ${allowedCollections.join(', ')}.`,
+        message: `Invalid collection: '${collection}'. Available: ${Object.keys(queryCollections).join(', ')}.`,
       });
     }
 
-    const targetCollection = (db as any)[collection];
-    if (!targetCollection) {
-      return res.status(400).json({
-        success: false,
-        message: `Invalid workspace collection: '${collection}'. Available: ['users', 'projects', 'tasks', 'auditLogs']`,
-      });
-    }
-
+    const targetCollection = queryCollections[collection];
     const startTime = performance.now();
     let result: any;
     let stageCount = 0;
@@ -40,7 +44,10 @@ export const executeMongoQuery = async (req: Request, res: Response) => {
         result = await targetCollection.countDocuments(filter);
         break;
       case 'aggregate':
-        stageCount = Array.isArray(pipeline) ? pipeline.length : 0;
+        if (!Array.isArray(pipeline)) {
+          return res.status(400).json({ success: false, message: 'Aggregation pipeline must be an array.' });
+        }
+        stageCount = pipeline.length;
         result = await targetCollection.aggregate(pipeline);
         break;
       default:
@@ -68,13 +75,16 @@ export const executeMongoQuery = async (req: Request, res: Response) => {
       operation,
       executionStats: {
         executionTimeMillis: executionTimeMs,
-        mode: 'IN_MEMORY_JSON_COLLECTION',
+        mode: 'MONGODB',
         pipelineStages: operation === 'aggregate' ? stageCount : undefined,
-        nReturned: Array.isArray(result) ? result.length : (result ? 1 : 0),
+        nReturned: Array.isArray(result) ? result.length : typeof result === 'number' ? result : (result ? 1 : 0),
       },
       data: removeSensitiveFields(result),
     });
   } catch (error: any) {
+    if (error instanceof DatabaseQueryValidationError) {
+      return res.status(400).json({ success: false, message: error.message });
+    }
     res.status(500).json({ success: false, message: error.message });
   }
 };
@@ -82,7 +92,7 @@ export const executeMongoQuery = async (req: Request, res: Response) => {
 /**
  * @desc    Get real-time database metrics & collection indexes
  * @route   GET /api/database/stats
- * @access  Public
+ * @access  Private (Admin only)
  */
 export const getDatabaseStats = async (req: Request, res: Response) => {
   try {
@@ -103,12 +113,14 @@ export const getDatabaseStats = async (req: Request, res: Response) => {
  */
 export const resetAndSeedDatabase = async (req: Request, res: Response) => {
   try {
-    db.users.clear();
-    db.projects.clear();
-    db.tasks.clear();
-    db.auditLogs.clear();
-    db.messages.clear();
-    db.notifications.clear();
+    await Promise.all([
+      db.users.clear(),
+      db.projects.clear(),
+      db.tasks.clear(),
+      db.auditLogs.clear(),
+      db.messages.clear(),
+      db.notifications.clear(),
+    ]);
     await db.seedDatabase();
 
     const stats = await db.getStats();
