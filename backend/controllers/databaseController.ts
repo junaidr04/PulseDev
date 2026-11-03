@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import db from '../config/db.js';
 
 /**
- * @desc    Execute safe MongoDB query from live UI Mongo Shell
+ * @desc    Execute a supported query against local workspace collections
  * @route   POST /api/database/query
  * @access  Private (or Public for Interview Showcase)
  */
@@ -21,7 +21,7 @@ export const executeMongoQuery = async (req: Request, res: Response) => {
     if (!targetCollection) {
       return res.status(400).json({
         success: false,
-        message: `Invalid MongoDB collection: '${collection}'. Available: ['users', 'projects', 'tasks', 'auditLogs']`,
+        message: `Invalid workspace collection: '${collection}'. Available: ['users', 'projects', 'tasks', 'auditLogs']`,
       });
     }
 
@@ -68,10 +68,9 @@ export const executeMongoQuery = async (req: Request, res: Response) => {
       operation,
       executionStats: {
         executionTimeMillis: executionTimeMs,
-        totalDocsExamined: Array.isArray(result) ? result.length : 1,
+        mode: 'IN_MEMORY_JSON_COLLECTION',
+        pipelineStages: operation === 'aggregate' ? stageCount : undefined,
         nReturned: Array.isArray(result) ? result.length : (result ? 1 : 0),
-        stage: operation === 'aggregate' ? `AGGREGATION_PIPELINE (${stageCount} stages)` : 'INDEX_SCAN (IXSCAN)',
-        indexUsed: targetCollection.getIndexes()[0] || '_id_',
       },
       data: removeSensitiveFields(result),
     });
@@ -115,7 +114,7 @@ export const resetAndSeedDatabase = async (req: Request, res: Response) => {
     const stats = await db.getStats();
     res.json({
       success: true,
-      message: 'MongoDB collections successfully wiped and re-seeded with production test dataset.',
+      message: 'Workspace data was reset and reseeded.',
       stats,
     });
   } catch (error: any) {

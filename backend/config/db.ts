@@ -107,7 +107,7 @@ export interface NotificationDoc extends BaseDocument {
   actorAvatar: string;
 }
 
-// Generate standard 24-character hex MongoDB ObjectId
+// Generate a 24-character hexadecimal identifier.
 export function generateObjectId(): string {
   const timestamp = Math.floor(Date.now() / 1000).toString(16).padStart(8, '0');
   const machine = Math.floor(Math.random() * 0xffffff).toString(16).padStart(6, '0');
@@ -116,8 +116,8 @@ export function generateObjectId(): string {
   return `${timestamp}${machine}${pid}${counter}`.toLowerCase();
 }
 
-// In-Memory Production-Grade MongoDB Collection Simulator
-export class MongoCollection<T extends BaseDocument> {
+// Keep collection documents in memory and persist changes to a local JSON file.
+export class JsonFileCollection<T extends BaseDocument> {
   public name: string;
   private documents: Map<string, T> = new Map();
   private indexes: Set<string> = new Set(['_id']);
@@ -282,7 +282,7 @@ export class MongoCollection<T extends BaseDocument> {
     return list.length;
   }
 
-  // MongoDB Aggregation Pipeline simulator ($match, $group, $sort, $limit, $project)
+  // Supports a subset of aggregation stages for the local JSON-backed store.
   async aggregate(pipeline: Array<Record<string, any>>): Promise<any[]> {
     let results: any[] = Array.from(this.documents.values()).map((d) => ({ ...d }));
 
@@ -367,41 +367,39 @@ export class MongoCollection<T extends BaseDocument> {
   }
 }
 
-// Database Connection & Singleton Registry
-class MongoDatabase {
-  public users = new MongoCollection<UserDoc>(
+// Local JSON-backed collection registry.
+class JsonFileStore {
+  public users = new JsonFileCollection<UserDoc>(
     'users',
     ['email', 'role'],
     path.resolve(process.cwd(), 'backend', 'data', 'users.json')
   );
-  public projects = new MongoCollection<ProjectDoc>(
+  public projects = new JsonFileCollection<ProjectDoc>(
     'projects',
     ['key', 'status', 'leadId'],
     path.resolve(process.cwd(), 'backend', 'data', 'projects.json')
   );
-  public tasks = new MongoCollection<TaskDoc>(
+  public tasks = new JsonFileCollection<TaskDoc>(
     'tasks',
     ['projectId', 'column', 'priority', 'assigneeId'],
     path.resolve(process.cwd(), 'backend', 'data', 'tasks.json')
   );
-  public auditLogs = new MongoCollection<AuditLogDoc>(
+  public auditLogs = new JsonFileCollection<AuditLogDoc>(
     'auditLogs',
     ['entityType', 'performedBy', 'createdAt'],
     path.resolve(process.cwd(), 'backend', 'data', 'auditLogs.json')
   );
-  public messages = new MongoCollection<MessageDoc>(
+  public messages = new JsonFileCollection<MessageDoc>(
     'messages',
     ['channel', 'createdAt'],
     path.resolve(process.cwd(), 'backend', 'data', 'messages.json')
   );
-  public notifications = new MongoCollection<NotificationDoc>(
+  public notifications = new JsonFileCollection<NotificationDoc>(
     'notifications',
     ['recipientRole', 'type', 'read'],
     path.resolve(process.cwd(), 'backend', 'data', 'notifications.json')
   );
 
-  public isConnected = true;
-  public connectionUri = process.env.MONGO_URI || 'mongodb+srv://pulsedev_cluster:••••••••@cluster0.mern.mongodb.net/pulsedev_production?retryWrites=true&w=majority';
   public serverStartTime = new Date();
   public readonly ready: Promise<void>;
 
@@ -532,7 +530,7 @@ class MongoDatabase {
       return;
     }
 
-    console.log('[MongoDB] Initializing database collections and indexes...');
+    console.log('[Storage] Initializing local JSON collections...');
 
     // Seed High-Impact Enterprise Projects
     const p1 = await this.projects.create({
@@ -799,7 +797,7 @@ class MongoDatabase {
       });
     }
 
-    console.log('[MongoDB] Seeding completed: 5 Users, 3 Projects, 6 Tasks, 2 AuditLogs, 3 Notifications, 3 Messages.');
+    console.log('[Storage] Demo data seeding completed.');
   }
 
   private async prepareProductionUsers(
@@ -904,45 +902,34 @@ class MongoDatabase {
     const auditCount = await this.auditLogs.countDocuments();
 
     return {
-      connected: this.isConnected,
-      databaseName: 'pulsedev_production',
-      engine: 'MongoDB v7.0.8 Enterprise Document Store',
-      driver: 'Mongoose v8.2.1 ODM with Connection Pooling',
+      persistence: 'local-json-files',
+      storageDirectory: 'backend/data',
+      adapter: 'In-memory collections persisted to JSON files',
       uptimeSeconds: Math.floor((Date.now() - this.serverStartTime.getTime()) / 1000),
       collections: [
         {
           name: 'users',
           documents: userCount,
-          indexes: this.users.getIndexes(),
-          storageSizeKB: userCount * 1.8 + 8,
         },
         {
           name: 'projects',
           documents: projectCount,
-          indexes: this.projects.getIndexes(),
-          storageSizeKB: projectCount * 3.2 + 8,
         },
         {
           name: 'tasks',
           documents: taskCount,
-          indexes: this.tasks.getIndexes(),
-          storageSizeKB: taskCount * 4.5 + 12,
         },
         {
           name: 'auditLogs',
           documents: auditCount,
-          indexes: this.auditLogs.getIndexes(),
-          storageSizeKB: auditCount * 1.2 + 4,
         },
       ],
       totalDocuments: userCount + projectCount + taskCount + auditCount,
-      activeConnectionPool: 12,
-      maxPoolSize: 50,
       memoryUsageMB: Math.round(process.memoryUsage().heapUsed / 1024 / 1024 * 10) / 10,
     };
   }
 }
 
 // Global Singleton Instance
-export const db = new MongoDatabase();
+export const db = new JsonFileStore();
 export default db;

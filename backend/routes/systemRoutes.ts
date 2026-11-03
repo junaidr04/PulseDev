@@ -17,14 +17,14 @@ router.get('/health', (req: Request, res: Response) => {
     status: 'healthy',
     timestamp: new Date().toISOString(),
     uptimeSeconds: Math.floor((Date.now() - startEpoch) / 1000),
-    service: 'PulseDev MERN Enterprise API',
+    service: 'PulseDev Workspace API',
     version: '2.4.0',
-    database: db.isConnected ? 'connected' : 'disconnected',
+    persistence: 'local-json-files',
   });
 });
 
 router.get('/metrics', async (req: Request, res: Response) => {
-  const dbStats = await db.getStats();
+  const storageStats = await db.getStats();
   const memory = process.memoryUsage();
   const cpus = os.cpus();
 
@@ -45,7 +45,7 @@ router.get('/metrics', async (req: Request, res: Response) => {
         heapTotalMB: Math.round(memory.heapTotal / 1024 / 1024),
       },
     },
-    database: dbStats,
+    persistence: storageStats,
   });
 });
 

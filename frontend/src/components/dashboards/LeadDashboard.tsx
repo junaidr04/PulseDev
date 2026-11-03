@@ -106,7 +106,7 @@ const PIPELINE_STEPS = [
   { id: 3, label: 'Prod Rollout', detail: 'Global fleet active' },
 ];
 
-export const PriyaLeadDashboard: React.FC<RoleCockpitProps> = ({
+export const LeadDashboard: React.FC<RoleCockpitProps> = ({
   theme,
   tasks,
   onNavigate,
@@ -498,4 +498,4 @@ export const PriyaLeadDashboard: React.FC<RoleCockpitProps> = ({
   );
 };
 
-export default PriyaLeadDashboard;
+export default LeadDashboard;

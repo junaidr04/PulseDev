@@ -243,16 +243,17 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   // Sync projects and analytics on startup or token refresh
   useEffect(() => {
+    if (!token) return;
     loadProjects();
     loadAnalytics();
   }, [token, loadProjects, loadAnalytics]);
 
   // Load project tasks whenever active project changes or on initial mount
   useEffect(() => {
-    if (activeProject?._id) {
+    if (token && activeProject?._id) {
       loadProjectTasks(activeProject._id);
     }
-  }, [activeProject?._id, loadProjectTasks]);
+  }, [token, activeProject?._id, loadProjectTasks]);
 
   const createTask = async (data: any) => {
     if (!user) {
