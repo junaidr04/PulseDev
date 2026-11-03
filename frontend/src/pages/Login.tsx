@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
 import { PulseBrandLogo } from '../components/Navbar';
+import Avatar from '../components/ui/Avatar';
 import {
   Lock,
   Mail,
@@ -21,105 +22,35 @@ interface PersonaCardItem {
   label: string;
   email: string;
   role: string;
-  workspace: string;
-  avatar: string;
-  activeBorder: string;
-  dot: string;
-  accentText: string;
 }
 
 const DEFAULT_PERSONAS: PersonaCardItem[] = [
   {
     label: 'Alex Chen',
     email: 'alex.chen@pulsedev.io',
-    role: 'Principal Architect',
-    workspace: 'Architecture & Governance',
-    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&h=120&q=80',
-    activeBorder: 'border-emerald-400/70 bg-emerald-500/10 shadow-[0_0_20px_rgba(16,185,129,0.18)]',
-    dot: 'bg-emerald-400',
-    accentText: 'text-emerald-400',
+    role: 'Admin',
   },
   {
     label: 'Priya Patel',
     email: 'priya.patel@pulsedev.io',
-    role: 'Staff Backend Lead',
-    workspace: 'Distributed APIs & Pods',
-    avatar: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?auto=format&fit=crop&w=120&h=120&q=80',
-    activeBorder: 'border-violet-400/70 bg-violet-500/10 shadow-[0_0_20px_rgba(139,92,246,0.18)]',
-    dot: 'bg-violet-400',
-    accentText: 'text-violet-400',
+    role: 'Team lead',
   },
   {
     label: 'Marcus Vance',
     email: 'marcus.vance@pulsedev.io',
-    role: 'Senior Software Engineer',
-    workspace: 'CI/CD & Dev Workbench',
-    avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=120&h=120&q=80',
-    activeBorder: 'border-cyan-400/70 bg-cyan-500/10 shadow-[0_0_20px_rgba(6,182,212,0.18)]',
-    dot: 'bg-cyan-400',
-    accentText: 'text-cyan-400',
+    role: 'Developer',
   },
   {
     label: 'Sophia Laurent',
     email: 'sophia.laurent@pulsedev.io',
-    role: 'QA Automation Lead',
-    workspace: 'Playwright E2E Lab',
-    avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=120&h=120&q=80',
-    activeBorder: 'border-amber-400/70 bg-amber-500/10 shadow-[0_0_20px_rgba(245,158,11,0.18)]',
-    dot: 'bg-amber-400',
-    accentText: 'text-amber-400',
+    role: 'QA',
   },
   {
     label: 'Jordan Blake',
     email: 'jordan.blake@pulsedev.io',
-    role: 'Product Manager',
-    workspace: 'Product Roadmap & OKRs',
-    avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&w=120&h=120&q=80',
-    activeBorder: 'border-rose-400/70 bg-rose-500/10 shadow-[0_0_20px_rgba(244,63,94,0.18)]',
-    dot: 'bg-rose-400',
-    accentText: 'text-rose-400',
+    role: 'Product manager',
   },
 ];
-
-function styleForRole(role: string) {
-  switch (role) {
-    case 'admin':
-      return {
-        workspace: 'Architecture & Governance',
-        activeBorder: 'border-emerald-400/70 bg-emerald-500/10 shadow-[0_0_20px_rgba(16,185,129,0.18)]',
-        dot: 'bg-emerald-400',
-        accentText: 'text-emerald-400',
-      };
-    case 'lead':
-      return {
-        workspace: 'Distributed APIs & Pods',
-        activeBorder: 'border-violet-400/70 bg-violet-500/10 shadow-[0_0_20px_rgba(139,92,246,0.18)]',
-        dot: 'bg-violet-400',
-        accentText: 'text-violet-400',
-      };
-    case 'qa':
-      return {
-        workspace: 'Playwright E2E Lab',
-        activeBorder: 'border-amber-400/70 bg-amber-500/10 shadow-[0_0_20px_rgba(245,158,11,0.18)]',
-        dot: 'bg-amber-400',
-        accentText: 'text-amber-400',
-      };
-    case 'guest':
-      return {
-        workspace: 'Product Roadmap & OKRs',
-        activeBorder: 'border-rose-400/70 bg-rose-500/10 shadow-[0_0_20px_rgba(244,63,94,0.18)]',
-        dot: 'bg-rose-400',
-        accentText: 'text-rose-400',
-      };
-    default:
-      return {
-        workspace: 'CI/CD & Dev Workbench',
-        activeBorder: 'border-cyan-400/70 bg-cyan-500/10 shadow-[0_0_20px_rgba(6,182,212,0.18)]',
-        dot: 'bg-cyan-400',
-        accentText: 'text-cyan-400',
-      };
-  }
-}
 
 export const Login: React.FC<LoginProps> = ({ onNavigate }) => {
   const { login } = useAuth();
@@ -146,16 +77,10 @@ export const Login: React.FC<LoginProps> = ({ onNavigate }) => {
           const fallback = DEFAULT_PERSONAS.find(
             (d) => d.email.toLowerCase() === String(u.email).toLowerCase()
           );
-          const roleStyles = styleForRole(u.role);
           return {
             label: u.name,
             email: u.email,
-            role: u.title || fallback?.role || u.role,
-            workspace: fallback?.workspace || roleStyles.workspace,
-            avatar: u.avatar || fallback?.avatar,
-            activeBorder: fallback?.activeBorder || roleStyles.activeBorder,
-            dot: fallback?.dot || roleStyles.dot,
-            accentText: fallback?.accentText || roleStyles.accentText,
+            role: fallback?.role || u.title || u.role,
           };
         });
         setPersonas(mapped);
@@ -214,16 +139,16 @@ export const Login: React.FC<LoginProps> = ({ onNavigate }) => {
           <div className="mb-3">
             <PulseBrandLogo size="lg" />
           </div>
-          <h2 className="text-xl font-bold text-white tracking-tight">Sign in to your workspace</h2>
+          <h2 className="text-xl font-semibold text-white tracking-tight">Sign in</h2>
           <p className="text-xs text-slate-400 mt-1">
-            Choose a sample account or sign in with your email.
+            Use a demo account or enter your email.
           </p>
         </div>
 
         <div className="rounded-2xl border border-slate-800/80 bg-slate-900/60 p-4">
           <div className="flex items-center justify-between mb-2.5">
             <span className="text-[11px] font-bold uppercase tracking-wider text-slate-300">
-              Sample accounts
+              Demo accounts
             </span>
           </div>
 
@@ -237,34 +162,27 @@ export const Login: React.FC<LoginProps> = ({ onNavigate }) => {
                   onClick={() => handleSelectPersona(p)}
                   className={`rounded-xl border p-3 text-left transition-all cursor-pointer ${
                     isSelected
-                      ? `${p.activeBorder} text-white`
+                      ? 'border-emerald-500/40 bg-emerald-500/[0.06] text-white'
                       : 'border-slate-800 bg-slate-950/90 text-slate-400 hover:border-slate-700 hover:text-slate-200'
                   }`}
                 >
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2.5 min-w-0">
                       <div className="relative flex-shrink-0">
-                        <img
-                          src={p.avatar}
-                          alt={p.label}
-                          className="h-8 w-8 rounded-full object-cover border border-white/[0.12]"
-                        />
-                        <span
-                          className={`absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full ${p.dot} ring-2 ring-slate-950`}
-                        />
+                        <Avatar name={p.label} className="h-8 w-8 text-xs" />
                       </div>
                       <div className="min-w-0">
                         <div className="font-semibold text-xs text-white truncate">{p.label}</div>
                         <div
                           className={`text-[10px] font-medium truncate ${
-                            isSelected ? p.accentText : 'text-slate-400'
+                            isSelected ? 'text-emerald-300' : 'text-slate-400'
                           }`}
                         >
                           {p.role}
                         </div>
                       </div>
                     </div>
-                    {isSelected && <CheckCircle2 className={`h-4 w-4 ${p.accentText} flex-shrink-0`} />}
+                    {isSelected && <CheckCircle2 className="h-4 w-4 text-emerald-300 flex-shrink-0" />}
                   </div>
                   <div className="mt-2 pt-1.5 border-t border-white/[0.06] flex items-center justify-between text-[10px] font-mono">
                     <span className="text-slate-500 truncate">{p.email}</span>
@@ -279,7 +197,7 @@ export const Login: React.FC<LoginProps> = ({ onNavigate }) => {
         <form
           onSubmit={handleSubmit}
           autoComplete="off"
-          className="rounded-2xl border border-slate-800 bg-slate-900/90 p-6 shadow-xl space-y-4 text-xs"
+          className="rounded-lg border border-slate-800 bg-slate-900 p-6 space-y-4 text-xs"
         >
           {error && (
             <div className="flex flex-col gap-2 rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 text-rose-400">
@@ -300,7 +218,7 @@ export const Login: React.FC<LoginProps> = ({ onNavigate }) => {
           )}
 
           <div>
-            <label className="block font-semibold text-slate-300">Email Address</label>
+            <label className="block font-medium text-slate-300">Email</label>
             <div className="relative mt-1">
               <Mail className="absolute left-3 top-2.5 h-3.5 w-3.5 text-slate-500" />
               <input
@@ -309,7 +227,7 @@ export const Login: React.FC<LoginProps> = ({ onNavigate }) => {
                 autoComplete="off"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="Select an account above or type email..."
+                placeholder="name@example.com"
                 className="w-full rounded-xl border border-slate-800 bg-slate-950 pl-9 pr-3 py-2 text-white placeholder-slate-500 focus:border-emerald-500 focus:outline-none"
               />
             </div>
@@ -358,7 +276,7 @@ export const Login: React.FC<LoginProps> = ({ onNavigate }) => {
             disabled={loading}
             className="w-full flex items-center justify-center gap-2 rounded-xl bg-emerald-500 py-2.5 font-bold text-slate-950 hover:bg-emerald-400 transition-colors shadow-md shadow-emerald-500/20 disabled:opacity-50 cursor-pointer"
           >
-            <span>{loading ? 'Authenticating...' : 'Sign In with Password'}</span>
+            <span>{loading ? 'Signing in...' : 'Sign in'}</span>
             <ArrowRight className="h-4 w-4" />
           </button>
 
@@ -387,14 +305,13 @@ export const Login: React.FC<LoginProps> = ({ onNavigate }) => {
       {/* Password recovery notice */}
       {isForgotOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/75 backdrop-blur-md p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/75 p-4"
           onClick={() => setIsForgotOpen(false)}
         >
           <div
-            className="relative my-auto w-full max-w-md rounded-2xl border border-white/[0.12] bg-[#11151f] p-6 shadow-2xl space-y-4 text-xs animate-modal-pop"
+            className="relative my-auto w-full max-w-md rounded-lg border border-white/[0.12] bg-[#11151f] p-6 space-y-4 text-xs"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-emerald-400 via-teal-300 to-cyan-400" />
 
             <div className="flex items-center justify-between border-b border-white/[0.08] pb-3">
               <div>

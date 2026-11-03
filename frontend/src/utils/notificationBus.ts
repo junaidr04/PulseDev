@@ -17,9 +17,7 @@ export function emitInstantNotification(payload: InstantNotificationPayload) {
     type: payload.type,
     read: false,
     actorName: payload.actorName,
-    actorAvatar:
-      payload.actorAvatar ||
-      'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=64&h=64&q=80',
+    actorAvatar: payload.actorAvatar || '',
     createdAt: payload.createdAt || new Date().toISOString(),
   };
 

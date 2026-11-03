@@ -1,8 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useProjects } from '../context/ProjectContext';
-import { getRoleTheme } from '../theme/roleTheme';
 import NotificationPopover from './NotificationPopover';
+import Avatar from './ui/Avatar';
+import { getRoleTheme } from '../theme/roleTheme';
 import {
   ChevronDown,
   LogOut,
@@ -13,7 +14,6 @@ import {
   CheckCircle2,
   X,
   Command,
-  Sparkles,
   KeyRound,
 } from 'lucide-react';
 
@@ -23,66 +23,10 @@ interface NavbarProps {
 }
 
 export const PulseBrandLogo: React.FC<{ size?: 'sm' | 'md' | 'lg' }> = ({ size = 'md' }) => {
-  const boxClass =
-    size === 'lg' ? 'h-11 w-11 rounded-2xl' : size === 'sm' ? 'h-7 w-7 rounded-lg' : 'h-8.5 w-8.5 rounded-xl';
-  const textClass =
-    size === 'lg' ? 'text-2xl' : size === 'sm' ? 'text-sm' : 'text-[16px]';
-
   return (
-    <div className="flex items-center gap-2.5 select-none group">
-      {/* Bespoke Geometric Pulse Prism Emblem */}
-      <div
-        className={`relative flex ${boxClass} items-center justify-center bg-[#0d111a] p-[1px] shadow-lg shadow-emerald-500/10 transition-transform duration-200 group-hover:scale-[1.03]`}
-      >
-        <div className="absolute inset-0 rounded-[inherit] bg-gradient-to-br from-emerald-400 via-teal-500/60 to-cyan-400 opacity-85 group-hover:opacity-100 transition-opacity" />
-        <div className="relative flex h-full w-full items-center justify-center rounded-[calc(inherit-1px)] bg-[#090c12]">
-          <svg
-            viewBox="0 0 28 28"
-            fill="none"
-            className="h-5 w-5"
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            <defs>
-              <linearGradient id="pulseBrandGrad" x1="2" y1="4" x2="26" y2="24" gradientUnits="userSpaceOnUse">
-                <stop offset="0%" stopColor="#34d399" />
-                <stop offset="50%" stopColor="#2dd4bf" />
-                <stop offset="100%" stopColor="#22d3ee" />
-              </linearGradient>
-            </defs>
-            {/* Outer Precision Diamond Frame */}
-            <path
-              d="M14 3L24.5 9V19L14 25L3.5 19V9L14 3Z"
-              stroke="url(#pulseBrandGrad)"
-              strokeWidth="1.4"
-              strokeOpacity="0.45"
-            />
-            {/* Dynamic Telemetry Pulse Wave */}
-            <path
-              d="M5.5 14.5H9.2L11.8 8.5L15.6 19.5L18.2 12.5L20.2 14.5H22.5"
-              stroke="url(#pulseBrandGrad)"
-              strokeWidth="2.2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-            {/* Glowing Core Node */}
-            <circle cx="22.5" cy="14.5" r="1.8" fill="#34d399" />
-          </svg>
-        </div>
-      </div>
-
-      {/* Bespoke Wordmark */}
-      <div className="flex items-baseline gap-0.5">
-        <span className={`${textClass} font-extrabold tracking-[-0.04em] text-white`}>
-          Pulse
-        </span>
-        <span
-          className={`${textClass} font-extrabold tracking-[-0.04em] bg-gradient-to-r from-emerald-400 via-teal-300 to-cyan-400 bg-clip-text text-transparent`}
-        >
-          Dev
-        </span>
-        <span className="ml-1 h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_#10b981]" />
-      </div>
-    </div>
+    <span className={`font-semibold tracking-tight text-white ${size === 'lg' ? 'text-2xl' : size === 'sm' ? 'text-sm' : 'text-base'}`}>
+      PulseDev
+    </span>
   );
 };
 
@@ -92,8 +36,8 @@ export const Navbar: React.FC<NavbarProps> = ({
 }) => {
   const { user, logout, isAuthenticated } = useAuth();
   const { projects, tasks, activeProject, setActiveProject } = useProjects();
-  const [dropdownOpen, setDropdownOpen] = useState(false);
   const roleTheme = getRoleTheme(user?.role);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
 
   const [searchOpen, setSearchOpen] = useState(false);
   const [globalQuery, setGlobalQuery] = useState('');
@@ -143,7 +87,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
   return (
     <>
-      <header className="sticky top-0 z-30 flex h-15 w-full items-center justify-between border-b border-white/[0.07] bg-[#090b10]/90 px-3 sm:px-4 backdrop-blur-xl">
+      <header className="sticky top-0 z-30 flex h-15 w-full items-center justify-between border-b border-white/[0.07] bg-[#090b10] px-3 sm:px-4">
         {/* Left: Unique PulseDev Brand + Context Breadcrumb */}
         <div className="flex items-center gap-3">
           <div
@@ -159,14 +103,13 @@ export const Navbar: React.FC<NavbarProps> = ({
                 onClick={() => onNavigate('projects')}
                 className="hover:text-neutral-300 transition-colors cursor-pointer py-1"
               >
-                Initiatives
+                Projects
               </button>
               <span className="text-neutral-700">/</span>
               <button
                 onClick={() => onNavigate('board')}
                 className="flex items-center gap-1.5 font-medium text-neutral-200 hover:text-white transition-colors cursor-pointer py-1"
               >
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
                 <span>{activeProject.title}</span>
               </button>
             </div>
@@ -202,7 +145,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                     setGlobalQuery(e.target.value);
                     setSearchOpen(true);
                   }}
-                  placeholder="Search issues, initiatives, or jump to..."
+                  placeholder="Search issues and projects"
                   aria-label="Command palette search"
                   className="h-9 w-64 lg:w-80 rounded-lg border border-white/[0.08] bg-[#11151f] pl-8 pr-12 text-xs text-neutral-200 placeholder-neutral-500 focus:border-emerald-500/40 focus:bg-[#141926] focus:outline-none transition-all"
                 />
@@ -222,8 +165,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
               {/* Grouped Command Palette Results (Responsive on Mobile & Desktop) */}
               {searchOpen && (
-                <div className="fixed left-3 right-3 top-16 sm:absolute sm:left-auto sm:right-0 sm:top-full sm:mt-2 w-auto sm:w-96 max-w-[calc(100vw-24px)] rounded-2xl border border-white/[0.12] bg-[#11151f] p-2.5 shadow-[0_20px_50px_rgba(0,0,0,0.85),0_0_30px_rgba(16,185,129,0.12)] z-50 space-y-2 animate-popover-pop overflow-hidden">
-                  <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-emerald-400 via-teal-300 to-cyan-400" />
+                <div className="fixed left-3 right-3 top-16 sm:absolute sm:left-auto sm:right-0 sm:top-full sm:mt-2 w-auto sm:w-96 max-w-[calc(100vw-24px)] rounded-lg border border-white/[0.12] bg-[#11151f] p-2.5 z-50 space-y-2 overflow-hidden">
                   {/* Mobile Search Input inside Command Palette */}
                   <div className="relative flex sm:hidden items-center pb-1">
                     <Search className="absolute left-3 h-3.5 w-3.5 text-neutral-400 pointer-events-none" />
@@ -232,7 +174,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                       type="text"
                       value={globalQuery}
                       onChange={(e) => setGlobalQuery(e.target.value)}
-                      placeholder="Search issues, initiatives, or jump to..."
+                      placeholder="Search issues and projects"
                       className="h-10 w-full rounded-xl border border-white/[0.1] bg-[#0c0f17] pl-8 pr-9 text-xs text-white placeholder-neutral-500 focus:border-emerald-400/50 focus:outline-none"
                     />
                     {globalQuery && (
@@ -246,8 +188,8 @@ export const Navbar: React.FC<NavbarProps> = ({
                   </div>
                   <div className="flex items-center justify-between px-2.5 py-1 border-b border-white/[0.06] text-[10px] text-neutral-500 font-mono">
                     <span className="flex items-center gap-1">
-                      <Command className="h-3 w-3 text-emerald-400" />
-                      <span>COMMAND PALETTE</span>
+                      <Command className="h-3 w-3 text-neutral-400" />
+                      <span>Search</span>
                     </span>
                     <button
                       onClick={() => setSearchOpen(false)}
@@ -266,7 +208,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                       {matchedProjects.length > 0 && (
                         <div>
                           <div className="px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-neutral-500">
-                            Initiatives
+                            Projects
                           </div>
                           {matchedProjects.map((p) => (
                             <button
@@ -290,8 +232,8 @@ export const Navbar: React.FC<NavbarProps> = ({
 
                       {matchedTasks.length > 0 && (
                         <div>
-                          <div className="px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-neutral-500">
-                            Cycle Issues
+                          <div className="px-2.5 py-1 text-xs font-medium text-neutral-500">
+                          Tasks
                           </div>
                           {matchedTasks.slice(0, 5).map((t) => (
                             <button
@@ -320,11 +262,10 @@ export const Navbar: React.FC<NavbarProps> = ({
                             onNavigate('ai');
                             setSearchOpen(false);
                           }}
-                          className="flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-left text-xs text-emerald-300 hover:bg-emerald-500/10 cursor-pointer"
+                          className="flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-left text-xs text-neutral-200 hover:bg-white/[0.06] cursor-pointer"
                         >
                           <div className="flex items-center gap-2">
-                            <Sparkles className="h-3.5 w-3.5 text-emerald-400" />
-                            <span>Open AI Sprint & Story Planner</span>
+                            <span>Planning tools</span>
                           </div>
                           <span className="font-mono text-[10px] text-emerald-400/80">G A</span>
                         </button>
@@ -347,27 +288,13 @@ export const Navbar: React.FC<NavbarProps> = ({
                 className="flex min-h-[44px] min-w-[44px] h-11 items-center justify-center gap-2 rounded-xl border border-white/[0.08] bg-[#11151f] px-2.5 text-left hover:border-white/[0.16] transition-colors cursor-pointer"
               >
                 <div className="relative">
-                  <img
-                    src={user.avatar}
-                    alt={user.name}
-                    className="h-7 w-7 rounded-full object-cover ring-1"
-                    style={{ borderColor: roleTheme.accentHex }}
-                  />
-                  <span
-                    className="absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full ring-2 ring-[#11151f]"
-                    style={{ backgroundColor: roleTheme.accentHex }}
-                  />
+                  <Avatar name={user.name} className="h-7 w-7 text-xs" />
                 </div>
                 <div className="hidden sm:flex flex-col leading-tight">
                   <span className="text-xs font-semibold text-neutral-100">
                     {user.name}
                   </span>
-                  <span
-                    className="font-mono text-[9px] font-semibold tracking-wider uppercase"
-                    style={{ color: roleTheme.accentHex }}
-                  >
-                    {roleTheme.shortBadge}
-                  </span>
+                  <span className="text-[11px] text-neutral-400">{roleTheme.roleTitle}</span>
                 </div>
                 <ChevronDown className="h-3.5 w-3.5 text-neutral-500" />
               </button>
@@ -378,13 +305,11 @@ export const Navbar: React.FC<NavbarProps> = ({
                     className="fixed inset-0 z-10"
                     onClick={() => setDropdownOpen(false)}
                   />
-                  <div className="fixed left-3 right-3 top-15 sm:absolute sm:left-auto sm:right-0 sm:top-full sm:mt-2 w-auto sm:w-68 max-w-[calc(100vw-24px)] origin-top-right rounded-2xl border border-white/[0.12] bg-[#11151f] p-1.5 shadow-[0_20px_50px_rgba(0,0,0,0.85),0_0_30px_rgba(16,185,129,0.12)] z-50 animate-popover-pop overflow-hidden">
-                    <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-emerald-400 via-teal-300 to-cyan-400" />
+                  <div className="fixed left-3 right-3 top-15 sm:absolute sm:left-auto sm:right-0 sm:top-full sm:mt-2 w-auto sm:w-68 max-w-[calc(100vw-24px)] origin-top-right rounded-lg border border-white/[0.12] bg-[#11151f] p-1.5 z-50 overflow-hidden">
                     <div className="px-2.5 py-2.5 border-b border-white/[0.07]">
                       <div className="text-xs font-semibold text-white">{user.name}</div>
                       <div className="text-[11px] text-neutral-400 truncate">{user.email}</div>
                       <div className="mt-1 inline-flex items-center gap-1.5 text-[11px] text-emerald-400 font-medium">
-                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
                         <span>{user.title}</span>
                       </div>
                     </div>
@@ -452,7 +377,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               {activeRoute !== 'login' && (
                 <button
                   onClick={() => onNavigate('login')}
-                  className="rounded-lg bg-gradient-to-r from-emerald-400 to-cyan-400 px-3 py-1.5 text-xs font-semibold text-[#090b10] hover:opacity-95 transition-opacity cursor-pointer"
+                  className="rounded-md bg-emerald-700 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-600 transition-colors cursor-pointer"
                 >
                   Sign in
                 </button>

@@ -2,15 +2,14 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
 import { emitInstantNotification, triggerNotificationRefresh } from '../utils/notificationBus';
+import Avatar from './ui/Avatar';
 import {
   MessageSquare,
   Send,
   X,
   Minimize2,
   Maximize2,
-  Bot,
   AtSign,
-  Smile,
   Image as ImageIcon,
   FileText,
   Download,
@@ -55,36 +54,32 @@ const TEAM_MEMBERS = [
     name: 'Alex Chen',
     handle: 'Alex Chen',
     shortHandle: 'Alex',
-    role: 'Principal Architect',
-    badge: 'Architect',
-    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=128&h=128&q=80',
+    role: 'Admin',
+    badge: 'Admin',
   },
   {
     id: '2',
     name: 'Priya Patel',
     handle: 'Priya Patel',
     shortHandle: 'Priya',
-    role: 'Staff Backend Lead',
-    badge: 'Staff Lead',
-    avatar: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?auto=format&fit=crop&w=128&h=128&q=80',
+    role: 'Team lead',
+    badge: 'Lead',
   },
   {
     id: '3',
     name: 'Marcus Vance',
     handle: 'Marcus Vance',
     shortHandle: 'Marcus',
-    role: 'Senior Software Engineer',
-    badge: 'Engineer',
-    avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=128&h=128&q=80',
+    role: 'Developer',
+    badge: 'Developer',
   },
   {
     id: '4',
     name: 'Sophia Laurent',
     handle: 'Sophia Laurent',
     shortHandle: 'Sophia',
-    role: 'QA Automation Lead',
-    badge: 'QA Lead',
-    avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=128&h=128&q=80',
+    role: 'QA',
+    badge: 'QA',
   },
   {
     id: '5',
@@ -93,24 +88,15 @@ const TEAM_MEMBERS = [
     shortHandle: 'Jordan',
     role: 'Product Manager',
     badge: 'Product',
-    avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&w=128&h=128&q=80',
   },
   {
     id: 'ai',
-    name: 'PulseDev AI Copilot',
+    name: 'Assistant',
     handle: 'ai',
     shortHandle: 'ai',
-    role: 'Automated Engineering Assistant',
-    badge: 'AI Copilot',
-    avatar: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=128&h=128&q=80',
+    role: 'Assistant',
+    badge: 'Assistant',
   },
-];
-
-const EMOJI_LIST = [
-  '👍', '🔥', '🚀', '✅', '🎉', '❤️', '👀', '💯',
-  '⚡', '🛠️', '🐛', '📈', '🙌', '👏', '🤔', '🎯',
-  '🔒', '✨', '💻', '☕', '🙏', '😄', '😎', '🥳',
-  '🤩', '💡', '📌', '🏆', '⏱️', '📦', '🔍', '🤝',
 ];
 
 const CHAT_STORAGE_KEY = 'pulsedev_chat_history_v2';
@@ -121,18 +107,8 @@ const INITIAL_MESSAGES: ChatMessage[] = [
     userId: '66a1bf9823e4d5c6b7a89001',
     userName: 'Alex Chen',
     userRole: 'admin',
-    userAvatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=128&h=128&q=80',
     channel: 'engineering-sync',
-    text: 'Good morning engineering team! Sprint 44 is live. Marcus, please prioritize the MongoDB compound indexing for PAY-103.',
-    attachments: [
-      {
-        id: 'att-init-pdf',
-        name: 'Sprint-44-Payment-Engine-Spec.pdf',
-        type: 'pdf',
-        url: 'data:application/pdf;base64,JVBERi0xLjQKJcfs...',
-        size: '420 KB',
-      },
-    ],
+    text: 'I added the auth notes to the password reset task. Can someone check the refresh flow before I merge?',
     createdAt: '2026-10-07T10:21:00.000Z',
   },
   {
@@ -140,9 +116,8 @@ const INITIAL_MESSAGES: ChatMessage[] = [
     userId: '66a1bf9823e4d5c6b7a89003',
     userName: 'Marcus Vance',
     userRole: 'developer',
-    userAvatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=128&h=128&q=80',
     channel: 'engineering-sync',
-    text: 'On it, Alex! The compound index { projectId: 1, column: 1, priority: 1 } reduced query latency down to 2ms in staging.',
+    text: 'I can take that. I will add a test for expired tokens and send it over for review.',
     createdAt: '2026-10-07T10:51:00.000Z',
   },
   {
@@ -150,9 +125,8 @@ const INITIAL_MESSAGES: ChatMessage[] = [
     userId: '66a1bf9823e4d5c6b7a89004',
     userName: 'Sophia Laurent',
     userRole: 'qa',
-    userAvatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=128&h=128&q=80',
     channel: 'engineering-sync',
-    text: 'Automated Playwright & Jest test suites have passed on the PR. Ready for review.',
+    text: 'The expired-token case works. Two tabs still refresh at once, though. I left a note on the task.',
     createdAt: '2026-10-07T11:21:00.000Z',
   },
 ];
@@ -253,24 +227,6 @@ function renderMessageWithMentions(text: string, isMe: boolean) {
   });
 }
 
-function getRoleBadgeLabel(role?: string, isBot?: boolean) {
-  if (isBot) return 'AI Copilot';
-  switch (role) {
-    case 'admin':
-      return 'Architect';
-    case 'lead':
-      return 'Staff Lead';
-    case 'developer':
-      return 'Engineer';
-    case 'qa':
-      return 'QA Lead';
-    case 'guest':
-      return 'Product';
-    default:
-      return 'Engineer';
-  }
-}
-
 function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
@@ -299,7 +255,6 @@ export const TeamChatWidget: React.FC = () => {
   // Popovers & Media State
   const [mentionPickerOpen, setMentionPickerOpen] = useState(false);
   const [mentionQuery, setMentionQuery] = useState('');
-  const [emojiPickerOpen, setEmojiPickerOpen] = useState(false);
   const [pendingAttachments, setPendingAttachments] = useState<ChatAttachment[]>([]);
   const [previewImageModal, setPreviewImageModal] = useState<ChatAttachment | null>(null);
 
@@ -399,7 +354,6 @@ export const TeamChatWidget: React.FC = () => {
     const match = val.match(/@([a-zA-Z]*)$/);
     if (match) {
       setMentionPickerOpen(true);
-      setEmojiPickerOpen(false);
       setMentionQuery(match[1].toLowerCase());
     } else {
       setMentionPickerOpen(false);
@@ -415,11 +369,6 @@ export const TeamChatWidget: React.FC = () => {
     }
     setMentionPickerOpen(false);
     setMentionQuery('');
-    inputRef.current?.focus();
-  };
-
-  const handleInsertEmoji = (emoji: string) => {
-    setInput((prev) => `${prev}${emoji}`);
     inputRef.current?.focus();
   };
 
@@ -489,7 +438,6 @@ export const TeamChatWidget: React.FC = () => {
     setPendingAttachments([]);
     setReplyingTo(null);
     setMentionPickerOpen(false);
-    setEmojiPickerOpen(false);
     setSending(true);
 
     const attachmentSummary =
@@ -502,9 +450,6 @@ export const TeamChatWidget: React.FC = () => {
       userId: user?._id || '1',
       userName: user?.name || 'Alex Chen',
       userRole: user?.role || 'admin',
-      userAvatar:
-        user?.avatar ||
-        'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=128&h=128&q=80',
       channel: 'engineering-sync',
       text: textToSend,
       attachments: attachmentsToSend,
@@ -553,11 +498,11 @@ export const TeamChatWidget: React.FC = () => {
       {/* Full-Screen Image Lightbox Modal */}
       {previewImageModal && (
         <div
-          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-md p-4"
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 p-4"
           onClick={() => setPreviewImageModal(null)}
         >
           <div
-            className="relative max-w-3xl max-h-[85vh] rounded-2xl border border-white/[0.12] bg-[#111317] p-3 shadow-2xl overflow-hidden flex flex-col"
+            className="relative max-w-3xl max-h-[85vh] rounded-lg border border-white/[0.12] bg-[#111317] p-3 overflow-hidden flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between pb-2.5 px-1 border-b border-white/[0.08]">
@@ -596,9 +541,9 @@ export const TeamChatWidget: React.FC = () => {
           <button
             onClick={() => setIsOpen(true)}
             aria-label="Open Team Chat"
-            className="group flex min-h-[48px] min-w-[48px] items-center justify-center gap-2.5 rounded-full border border-white/[0.16] bg-[#121621]/80 p-2.5 sm:pl-3 sm:pr-4 sm:py-2.5 text-xs font-medium text-neutral-100 backdrop-blur-xl shadow-[0_12px_36px_-4px_rgba(0,0,0,0.85),0_0_0_1px_rgba(255,255,255,0.08)_inset,0_0_24px_rgba(16,185,129,0.14)] hover:border-emerald-400/40 hover:bg-[#171c29]/90 transition-all cursor-pointer"
+            className="group flex min-h-[48px] min-w-[48px] items-center justify-center gap-2.5 rounded-lg border border-white/[0.12] bg-[#121621] p-2.5 text-xs font-medium text-neutral-100 hover:border-white/[0.2] hover:bg-[#171c29] transition-colors cursor-pointer"
           >
-            <div className="relative flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-r from-emerald-400 to-cyan-400 text-[#090b10] shadow-sm">
+            <div className="relative flex h-7 w-7 items-center justify-center rounded-md bg-emerald-700 text-white">
               <MessageSquare className="h-3.5 w-3.5" />
               {unreadCount > 0 && (
                 <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-indigo-500 px-1 text-[9px] font-bold text-white ring-2 ring-[#121621]">
@@ -606,20 +551,19 @@ export const TeamChatWidget: React.FC = () => {
                 </span>
               )}
             </div>
-            <span className="hidden sm:inline font-semibold tracking-tight">Team Chat</span>
+            <span className="hidden sm:inline font-semibold tracking-tight">Team chat</span>
           </button>
         )}
 
         {/* Open Chat Window */}
         {isOpen && (
           <div
-            className={`relative flex flex-col rounded-2xl border border-white/[0.14] bg-[#111317] shadow-[0_24px_60px_rgba(0,0,0,0.85),0_0_36px_rgba(16,185,129,0.15)] overflow-hidden transition-all duration-200 animate-modal-pop ${
+            className={`relative flex flex-col rounded-lg border border-white/[0.12] bg-[#111317] overflow-hidden transition-colors duration-200 ${
               isExpanded
                 ? 'w-[94vw] sm:w-[540px] h-[640px]'
                 : 'w-[92vw] sm:w-[420px] h-[540px]'
             }`}
           >
-            <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-emerald-400 via-teal-300 to-cyan-400 z-10" />
             {/* Header */}
             <div className="flex items-center justify-between border-b border-white/[0.08] bg-[#14161b] px-4 py-3">
               <div>
@@ -628,23 +572,11 @@ export const TeamChatWidget: React.FC = () => {
                   <span className="font-semibold text-xs text-white">#engineering-sync</span>
                 </div>
                 <div className="text-[11px] text-neutral-400 mt-0.5">
-                  Share PDFs, pictures, emojis & <span className="font-mono text-neutral-300">@mention</span>
+                  Share files or mention a teammate.
                 </div>
               </div>
 
               <div className="flex items-center gap-2">
-                <div className="hidden sm:flex -space-x-1.5 mr-1">
-                  {TEAM_MEMBERS.slice(0, 4).map((m) => (
-                    <img
-                      key={m.id}
-                      src={m.avatar}
-                      alt={m.name}
-                      title={`${m.name} (${m.role})`}
-                      className="h-5.5 w-5.5 rounded-full object-cover ring-2 ring-[#14161b]"
-                    />
-                  ))}
-                </div>
-
                 <button
                   onClick={() => setIsExpanded(!isExpanded)}
                   className="rounded-md p-1.5 text-neutral-400 hover:bg-white/[0.06] hover:text-white cursor-pointer"
@@ -677,22 +609,12 @@ export const TeamChatWidget: React.FC = () => {
               className="flex-1 overflow-y-auto p-4 space-y-4"
             >
               {messages.map((msg) => {
-                const senderName = msg.userName || msg.senderName || 'Alex Chen';
-                const senderRole = msg.userRole || msg.senderRole || 'developer';
-                const isBot = Boolean(
-                  msg.isAiResponse || msg.isAi || senderRole === 'bot' || senderName.includes('AI')
-                );
-                const matchedMember = TEAM_MEMBERS.find(
-                  (m) => m.name.toLowerCase() === senderName.toLowerCase()
-                );
-                const senderAvatar =
-                  msg.userAvatar ||
-                  msg.senderAvatar ||
-                  matchedMember?.avatar ||
-                  'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=128&h=128&q=80';
-
-                const isMe = senderName === user?.name && !isBot;
-                const roleBadge = getRoleBadgeLabel(senderRole, isBot);
+                  const senderName = msg.userName || msg.senderName || 'Alex Chen';
+                  const senderRole = msg.userRole || msg.senderRole || 'developer';
+                  const isBot = Boolean(
+                    msg.isAiResponse || msg.isAi || senderRole === 'bot' || senderName.includes('AI')
+                  );
+                  const isMe = senderName === user?.name && !isBot;
 
                 const rawTime = msg.createdAt ? new Date(msg.createdAt) : new Date();
                 const validTime = isNaN(rawTime.getTime()) ? new Date() : rawTime;
@@ -705,22 +627,7 @@ export const TeamChatWidget: React.FC = () => {
                   >
                     {/* Sender Profile Picture */}
                     <div className="relative flex-shrink-0 mt-0.5">
-                      {isBot ? (
-                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-indigo-500/20 border border-indigo-500/30 text-indigo-300">
-                          <Bot className="h-4 w-4" />
-                        </div>
-                      ) : (
-                        <img
-                          src={senderAvatar}
-                          alt={senderName}
-                          className="h-8 w-8 rounded-full object-cover border border-white/[0.12]"
-                        />
-                      )}
-                      <span
-                        className={`absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full ring-2 ring-[#111317] ${
-                          isBot ? 'bg-indigo-400' : 'bg-emerald-400'
-                        }`}
-                      />
+                      <Avatar name={senderName} className="h-8 w-8 text-xs" />
                     </div>
 
                     {/* Message Content & Attachments */}
@@ -732,9 +639,6 @@ export const TeamChatWidget: React.FC = () => {
                       >
                         <span className="text-xs font-semibold text-white">
                           {senderName}
-                        </span>
-                        <span className="rounded bg-white/[0.06] px-1.5 py-0.2 text-[10px] text-neutral-400 font-medium">
-                          {roleBadge}
                         </span>
                         <span className="text-[10px] text-neutral-500 font-mono">
                           {validTime.toLocaleTimeString([], {
@@ -855,36 +759,6 @@ export const TeamChatWidget: React.FC = () => {
               })}
             </div>
 
-            {/* Emoji Picker Popover */}
-            {emojiPickerOpen && (
-              <div className="border-t border-white/[0.08] bg-[#161920] p-3">
-                <div className="flex items-center justify-between pb-2 mb-2 border-b border-white/[0.06]">
-                  <span className="text-[11px] font-medium text-neutral-300">
-                    Insert Emoji
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setEmojiPickerOpen(false)}
-                    className="text-neutral-500 hover:text-white text-xs cursor-pointer"
-                  >
-                    <X className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-                <div className="grid grid-cols-8 gap-1.5">
-                  {EMOJI_LIST.map((emoji) => (
-                    <button
-                      key={emoji}
-                      type="button"
-                      onClick={() => handleInsertEmoji(emoji)}
-                      className="flex h-8 w-8 items-center justify-center rounded-lg text-base hover:bg-white/[0.1] transition-colors cursor-pointer"
-                    >
-                      {emoji}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
             {/* Interactive @Mention Popover Menu */}
             {mentionPickerOpen && (
               <div className="border-t border-white/[0.08] bg-[#161920] p-2 max-h-44 overflow-y-auto">
@@ -907,11 +781,7 @@ export const TeamChatWidget: React.FC = () => {
                       className="flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-left text-xs hover:bg-white/[0.07] transition-colors cursor-pointer"
                     >
                       <div className="flex items-center gap-2.5">
-                        <img
-                          src={member.avatar}
-                          alt={member.name}
-                          className="h-6 w-6 rounded-full object-cover"
-                        />
+                        <Avatar name={member.name} className="h-6 w-6 text-[9px]" />
                         <div>
                           <span className="font-medium text-white">{member.name}</span>
                           <span className="ml-1.5 text-[11px] text-neutral-400">
@@ -964,7 +834,7 @@ export const TeamChatWidget: React.FC = () => {
               <span className="text-[10px] text-neutral-500 whitespace-nowrap mr-0.5">
                 Mention:
               </span>
-              {TEAM_MEMBERS.map((member) => (
+              {TEAM_MEMBERS.filter((member) => member.id !== 'ai').map((member) => (
                 <button
                   key={member.id}
                   type="button"
@@ -972,11 +842,6 @@ export const TeamChatWidget: React.FC = () => {
                   className="flex items-center gap-1.5 rounded-full border border-white/[0.07] bg-[#181b22] pl-1 pr-2 py-0.5 text-[11px] text-neutral-300 hover:border-white/[0.18] hover:text-white whitespace-nowrap cursor-pointer flex-shrink-0"
                   title={`Mention ${member.name} (${member.role})`}
                 >
-                  <img
-                    src={member.avatar}
-                    alt={member.name}
-                    className="h-4 w-4 rounded-full object-cover"
-                  />
                   <span>@{member.shortHandle}</span>
                 </button>
               ))}
@@ -1048,29 +913,11 @@ export const TeamChatWidget: React.FC = () => {
                 <FileText className="h-3.5 w-3.5" />
               </button>
 
-              {/* Emoji Picker Button */}
-              <button
-                type="button"
-                onClick={() => {
-                  setEmojiPickerOpen(!emojiPickerOpen);
-                  setMentionPickerOpen(false);
-                }}
-                className={`flex h-8 w-8 items-center justify-center rounded-lg border transition-colors cursor-pointer flex-shrink-0 ${
-                  emojiPickerOpen
-                    ? 'border-amber-500/50 bg-amber-500/20 text-amber-300'
-                    : 'border-white/[0.08] bg-[#0e1014] text-neutral-400 hover:border-white/[0.18] hover:text-amber-300'
-                }`}
-                title="Add Emoji"
-              >
-                <Smile className="h-3.5 w-3.5" />
-              </button>
-
               {/* @Mention Button */}
               <button
                 type="button"
                 onClick={() => {
                   setMentionPickerOpen(!mentionPickerOpen);
-                  setEmojiPickerOpen(false);
                   inputRef.current?.focus();
                 }}
                 className={`flex h-8 w-8 items-center justify-center rounded-lg border transition-colors cursor-pointer flex-shrink-0 ${
@@ -1088,7 +935,7 @@ export const TeamChatWidget: React.FC = () => {
                 type="text"
                 value={input}
                 onChange={handleInputChange}
-                placeholder="Message, add PDF/pic, emoji, or @mention..."
+                placeholder="Write a message or mention a teammate"
                 className="flex-1 min-w-0 rounded-lg border border-white/[0.08] bg-[#0e1014] px-3 py-1.5 text-xs text-white placeholder-neutral-500 focus:border-white/[0.2] focus:outline-none"
               />
 

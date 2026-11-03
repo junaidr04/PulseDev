@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import Avatar from '../components/ui/Avatar';
 import api from '../services/api';
 import {
   RefreshCw,
@@ -30,65 +31,6 @@ interface AuditLogEntry {
   createdAt?: string;
 }
 
-const FALLBACK_AUDIT_LOGS: AuditLogEntry[] = [
-  {
-    _id: 'aud-1',
-    action: 'USER_LOGIN',
-    userId: '1',
-    userName: 'Alex Chen',
-    userEmail: 'alex.chen@pulsedev.io',
-    userRole: 'admin',
-    userDepartment: 'Core Architecture',
-    userAvatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=128&h=128&q=80',
-    details: 'Signed in via JWT password verification',
-    ipAddress: '127.0.0.1',
-    userAgent: 'Chrome 134 / macOS Workspace',
-    createdAt: new Date(Date.now() - 120000).toISOString(),
-  },
-  {
-    _id: 'aud-2',
-    action: 'USER_LOGIN',
-    userId: '2',
-    userName: 'Priya Patel',
-    userEmail: 'priya.patel@pulsedev.io',
-    userRole: 'lead',
-    userDepartment: 'Platform Engineering',
-    userAvatar: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?auto=format&fit=crop&w=128&h=128&q=80',
-    details: 'Authenticated into Sprint 44 workspace',
-    ipAddress: '10.0.4.18',
-    userAgent: 'Firefox 132 / Ubuntu Linux',
-    createdAt: new Date(Date.now() - 1800000).toISOString(),
-  },
-  {
-    _id: 'aud-3',
-    action: 'USER_REGISTER',
-    userId: '4',
-    userName: 'Sophia Laurent',
-    userEmail: 'sophia.laurent@pulsedev.io',
-    userRole: 'qa',
-    userDepartment: 'Quality Engineering',
-    userAvatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=128&h=128&q=80',
-    details: 'New account registered (QA Automation Lead)',
-    ipAddress: '10.0.8.42',
-    userAgent: 'Safari 18 / macOS Sonoma',
-    createdAt: new Date(Date.now() - 5400000).toISOString(),
-  },
-  {
-    _id: 'aud-4',
-    action: 'USER_LOGIN',
-    userId: '3',
-    userName: 'Marcus Vance',
-    userEmail: 'marcus.vance@pulsedev.io',
-    userRole: 'developer',
-    userDepartment: 'Product Engineering',
-    userAvatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=128&h=128&q=80',
-    details: 'Signed in to submit PR for PAY-101',
-    ipAddress: '192.168.1.44',
-    userAgent: 'Chrome 134 / macOS Workspace',
-    createdAt: new Date(Date.now() - 7200000).toISOString(),
-  },
-];
-
 export function formatAuditDateTime(raw?: string): { dateStr: string; timeStr: string } {
   const parsed = raw ? new Date(raw) : new Date();
   const validDate = isNaN(parsed.getTime()) ? new Date() : parsed;
@@ -107,7 +49,7 @@ export function formatAuditDateTime(raw?: string): { dateStr: string; timeStr: s
 
 export const AdminAudit: React.FC = () => {
   const { user, startImpersonation } = useAuth();
-  const [logs, setLogs] = useState<AuditLogEntry[]>(FALLBACK_AUDIT_LOGS);
+  const [logs, setLogs] = useState<AuditLogEntry[]>([]);
   const [teamUsers, setTeamUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [filterType, setFilterType] = useState<string>('ALL');
@@ -130,14 +72,17 @@ export const AdminAudit: React.FC = () => {
         api.auth.getAuditLogs(),
         api.auth.getUsers(),
       ]);
-      if (logsRes.success && Array.isArray(logsRes.logs) && logsRes.logs.length > 0) {
-        setLogs(logsRes.logs);
-      }
+      if (logsRes.success && Array.isArray(logsRes.logs)) setLogs(logsRes.logs);
+      else setStatusBanner('Could not load audit events.');
       if (usersRes.success && Array.isArray(usersRes.users)) {
         setTeamUsers(usersRes.users);
+      } else {
+        setStatusBanner('Could not load team members.');
       }
-    } catch {
-      // Keep fallback logs
+    } catch (error) {
+      setStatusBanner(
+        error instanceof Error ? error.message : 'Could not load audit data.'
+      );
     } finally {
       setLoading(false);
     }
@@ -181,9 +126,9 @@ export const AdminAudit: React.FC = () => {
         <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-white/[0.08] bg-[#111317] text-neutral-400 mb-4">
           <Lock className="h-5 w-5" />
         </div>
-        <h2 className="text-base font-semibold text-white">403 Forbidden — Restricted to Workspace Admins</h2>
+        <h2 className="text-base font-semibold text-white">Access restricted to admins</h2>
         <p className="mt-1.5 max-w-sm text-xs text-neutral-400 leading-relaxed">
-          User management, audited impersonation, and security logs require the Principal Architect (`admin`) role.
+          User management and audit logs are only available to admins.
         </p>
       </div>
     );
@@ -218,10 +163,10 @@ export const AdminAudit: React.FC = () => {
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between border-b border-white/[0.07] pb-5">
           <div>
             <h1 className="text-xl font-semibold text-white tracking-tight">
-              Admin Dashboard — User Management & Security Audit
+              Team members and audit log
             </h1>
             <p className="text-[13px] text-neutral-400 mt-1">
-              Manage team RBAC roles, start audited support impersonation sessions, and inspect security logs.
+              Manage roles, review activity, and view audit events.
             </p>
           </div>
 
@@ -271,11 +216,7 @@ export const AdminAudit: React.FC = () => {
                   className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-5 py-3.5 hover:bg-white/[0.02]"
                 >
                   <div className="flex items-center gap-3 min-w-0">
-                    <img
-                      src={member.avatar}
-                      alt={member.name}
-                      className="h-8 w-8 rounded-full object-cover border border-white/[0.08]"
-                    />
+                    <Avatar name={member.name} className="h-8 w-8 text-xs" />
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
                         <span className="text-[13px] font-medium text-white truncate">
@@ -405,14 +346,7 @@ export const AdminAudit: React.FC = () => {
                     className="grid grid-cols-12 items-center px-4 py-3 text-xs hover:bg-white/[0.02] transition-colors"
                   >
                     <div className="col-span-4 flex items-center gap-2.5 pr-3 min-w-0">
-                      <img
-                        src={
-                          log.userAvatar ||
-                          'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=128&h=128&q=80'
-                        }
-                        alt={log.userName || 'User'}
-                        className="h-7 w-7 rounded-full object-cover flex-shrink-0"
-                      />
+                      <Avatar name={log.userName || log.performedByName || 'User'} className="h-7 w-7 text-[10px]" />
                       <div className="min-w-0">
                         <div className="font-medium text-neutral-100 truncate">
                           {log.userName || log.performedByName || 'Alex Chen'}
@@ -452,14 +386,13 @@ export const AdminAudit: React.FC = () => {
       {/* Explicit Confirmation Modal for Admin Impersonation */}
       {impersonateTarget && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-md p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4"
           onClick={() => setImpersonateTarget(null)}
         >
           <div
-            className="relative overflow-hidden w-full max-w-md rounded-2xl border border-amber-500/30 bg-[#11151f] p-6 shadow-2xl animate-modal-pop"
+            className="relative w-full max-w-md rounded-lg border border-white/[0.12] bg-[#11151f] p-6"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-amber-400 via-orange-400 to-rose-400" />
             <div className="flex items-center justify-between border-b border-white/[0.07] pb-3.5">
               <div className="flex items-center gap-2">
                 <ShieldAlert className="h-4 w-4 text-amber-400" />
@@ -475,11 +408,7 @@ export const AdminAudit: React.FC = () => {
 
             <form onSubmit={handleConfirmImpersonation} className="mt-4 space-y-4 text-xs">
               <div className="rounded-xl border border-white/[0.08] bg-[#0b0d13] p-3 flex items-center gap-3">
-                <img
-                  src={impersonateTarget.avatar}
-                  alt={impersonateTarget.name}
-                  className="h-10 w-10 rounded-full object-cover"
-                />
+                <Avatar name={impersonateTarget.name} className="h-10 w-10 text-sm" />
                 <div>
                   <div className="font-semibold text-white">{impersonateTarget.name}</div>
                   <div className="text-neutral-400">{impersonateTarget.email}</div>

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
+import Avatar from './ui/Avatar';
 import {
   Bell,
   Check,
@@ -92,7 +93,7 @@ export const NotificationPopover: React.FC<NotificationPopoverProps> = ({ onNavi
     return () => clearInterval(interval);
   }, [fetchNotifications, currentUserId]);
 
-  // Listen to 0ms instant notifications from any user action in the app
+  // Listen for local notifications so the list updates without a page reload.
   useEffect(() => {
     const handleInstant = (e: Event) => {
       const custom = e as CustomEvent<NotificationItem>;
@@ -151,7 +152,7 @@ export const NotificationPopover: React.FC<NotificationPopoverProps> = ({ onNavi
 
   const handleMarkAsRead = async (id: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
-    // Immediately mark read in both notifications array and per-user localReadMap so bell badge decrements in 0ms
+    // Update local state first so the unread badge responds immediately.
     setNotifications((prev) =>
       prev.map((n) => (n._id === id ? { ...n, read: true } : n))
     );
@@ -213,16 +214,9 @@ export const NotificationPopover: React.FC<NotificationPopoverProps> = ({ onNavi
             setLiveToast(null);
             setIsOpen(true);
           }}
-          className="fixed top-15 left-3 right-3 sm:left-auto sm:right-5 z-50 flex items-start gap-3 w-auto sm:w-96 max-w-[calc(100vw-24px)] rounded-xl border border-white/[0.14] bg-[#14171f]/95 p-3.5 shadow-2xl backdrop-blur-xl cursor-pointer animate-page"
+          className="fixed top-15 left-3 right-3 sm:left-auto sm:right-5 z-50 flex items-start gap-3 w-auto sm:w-96 max-w-[calc(100vw-24px)] rounded-lg border border-white/[0.14] bg-[#14171f] p-3.5 cursor-pointer"
         >
-          <img
-            src={
-              liveToast.actorAvatar ||
-              'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=64&h=64&q=80'
-            }
-            alt={liveToast.actorName}
-            className="h-8 w-8 rounded-full object-cover border border-white/[0.1] flex-shrink-0 mt-0.5"
-          />
+          <Avatar name={liveToast.actorName} className="h-8 w-8 text-xs mt-0.5" />
           <div className="flex-1 min-w-0">
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-1.5 truncate">
@@ -268,8 +262,7 @@ export const NotificationPopover: React.FC<NotificationPopoverProps> = ({ onNavi
         </button>
 
         {isOpen && (
-          <div className="fixed left-3 right-3 top-15 sm:absolute sm:left-auto sm:right-0 sm:top-full sm:mt-2 w-auto sm:w-96 max-w-[calc(100vw-24px)] origin-top-right rounded-2xl border border-white/[0.12] bg-[#11151f] p-3 shadow-[0_20px_50px_rgba(0,0,0,0.85),0_0_30px_rgba(16,185,129,0.12)] z-50 animate-popover-pop overflow-hidden">
-            <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-emerald-400 via-teal-300 to-cyan-400" />
+          <div className="fixed left-3 right-3 top-15 sm:absolute sm:left-auto sm:right-0 sm:top-full sm:mt-2 w-auto sm:w-96 max-w-[calc(100vw-24px)] origin-top-right rounded-lg border border-white/[0.12] bg-[#11151f] p-3 z-50 overflow-hidden">
             <div className="flex items-center justify-between border-b border-white/[0.07] pb-2.5 px-1">
               <div className="flex items-center gap-2">
                 <span className="font-semibold text-xs text-white">Live Notifications</span>
@@ -356,14 +349,7 @@ export const NotificationPopover: React.FC<NotificationPopoverProps> = ({ onNavi
                         }
                       }}
                     >
-                      <img
-                        src={
-                          notif.actorAvatar ||
-                          'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=64&h=64&q=80'
-                        }
-                        alt={notif.actorName}
-                        className="h-7 w-7 rounded-full border border-white/[0.1] object-cover flex-shrink-0 mt-0.5"
-                      />
+                      <Avatar name={notif.actorName} className="h-7 w-7 text-[10px] mt-0.5" />
                       <div className="flex-1 overflow-hidden">
                         <div className="flex items-center justify-between gap-1">
                           <div className="flex items-center gap-1.5 truncate">

@@ -14,7 +14,7 @@ export const Register: React.FC<RegisterProps> = ({ onNavigate }) => {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [role, setRole] = useState('developer');
-  const [department, setDepartment] = useState('Platform Engineering');
+  const [department, setDepartment] = useState('Engineering');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -24,10 +24,10 @@ export const Register: React.FC<RegisterProps> = ({ onNavigate }) => {
     setError(null);
     try {
       const roleTitleMap: Record<string, string> = {
-        admin: 'Principal Architect',
-        lead: 'Staff Backend Lead',
-        developer: 'Senior Software Engineer',
-        qa: 'QA Automation Lead',
+        admin: 'Admin',
+        lead: 'Team lead',
+        developer: 'Developer',
+        qa: 'QA',
         guest: 'Product Manager',
       };
       await register({
@@ -53,11 +53,11 @@ export const Register: React.FC<RegisterProps> = ({ onNavigate }) => {
           <div className="mb-3">
             <PulseBrandLogo size="lg" />
           </div>
-          <h2 className="text-xl font-bold text-white tracking-tight">Create your Account</h2>
-          <p className="text-xs text-slate-400 mt-1">Join the enterprise engineering workspace</p>
+          <h2 className="text-xl font-semibold text-white tracking-tight">Create an account</h2>
+          <p className="text-xs text-slate-400 mt-1">Fill in your details to join the workspace.</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="rounded-2xl border border-slate-800 bg-slate-900/90 p-6 shadow-xl space-y-4 text-xs">
+        <form onSubmit={handleSubmit} className="rounded-lg border border-slate-800 bg-slate-900 p-6 space-y-4 text-xs">
           {error && (
             <div className="flex items-center gap-2 rounded-lg border border-rose-500/30 bg-rose-500/10 p-3 text-rose-400">
               <AlertCircle className="h-4 w-4 flex-shrink-0" />
@@ -66,7 +66,7 @@ export const Register: React.FC<RegisterProps> = ({ onNavigate }) => {
           )}
 
           <div>
-            <label className="block font-semibold text-slate-300">Full Name</label>
+            <label className="block font-medium text-slate-300">Name</label>
             <div className="relative mt-1">
               <User className="absolute left-3 top-2.5 h-3.5 w-3.5 text-slate-500" />
               <input
@@ -81,7 +81,7 @@ export const Register: React.FC<RegisterProps> = ({ onNavigate }) => {
           </div>
 
           <div>
-            <label className="block font-semibold text-slate-300">Email Address</label>
+            <label className="block font-medium text-slate-300">Email</label>
             <div className="relative mt-1">
               <Mail className="absolute left-3 top-2.5 h-3.5 w-3.5 text-slate-500" />
               <input
@@ -121,30 +121,30 @@ export const Register: React.FC<RegisterProps> = ({ onNavigate }) => {
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block font-semibold text-slate-300">Initial Role (RBAC)</label>
+              <label className="block font-medium text-slate-300">Role</label>
               <select
                 value={role}
                 onChange={(e) => setRole(e.target.value)}
                 className="mt-1 w-full rounded-xl border border-slate-800 bg-slate-950 px-2 py-2 text-white focus:border-emerald-500 focus:outline-none"
               >
                 <option value="developer">Developer</option>
-                <option value="lead">Tech Lead</option>
-                <option value="admin">Architect (Admin)</option>
-                <option value="qa">QA Automation</option>
+                <option value="lead">Team lead</option>
+                <option value="admin">Admin</option>
+                <option value="qa">QA</option>
                 <option value="guest">Product Manager</option>
               </select>
             </div>
 
             <div>
-              <label className="block font-semibold text-slate-300">Department</label>
+              <label className="block font-medium text-slate-300">Department</label>
               <select
                 value={department}
                 onChange={(e) => setDepartment(e.target.value)}
                 className="mt-1 w-full rounded-xl border border-slate-800 bg-slate-950 px-2 py-2 text-white focus:border-emerald-500 focus:outline-none"
               >
-                <option value="Platform Engineering">Platform</option>
-                <option value="Cloud Services">Cloud Services</option>
-                <option value="Security & Auth">Security</option>
+                <option value="Engineering">Engineering</option>
+                <option value="Product">Product</option>
+                <option value="Infrastructure">Infrastructure</option>
                 <option value="Quality Assurance">QA</option>
                 <option value="Product Strategy">Product Strategy</option>
               </select>
@@ -154,9 +154,9 @@ export const Register: React.FC<RegisterProps> = ({ onNavigate }) => {
           <button
             type="submit"
             disabled={loading}
-            className="w-full flex items-center justify-center gap-2 rounded-xl bg-emerald-500 py-2.5 font-bold text-slate-950 hover:bg-emerald-400 transition-colors shadow-lg shadow-emerald-500/20 disabled:opacity-50 cursor-pointer"
+            className="w-full flex items-center justify-center gap-2 rounded-md bg-emerald-700 py-2.5 font-medium text-white hover:bg-emerald-600 transition-colors disabled:opacity-50 cursor-pointer"
           >
-            <span>{loading ? 'Creating Account...' : 'Register Account'}</span>
+            <span>{loading ? 'Creating account...' : 'Create account'}</span>
             <ArrowRight className="h-4 w-4" />
           </button>
 

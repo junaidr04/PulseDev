@@ -42,7 +42,6 @@ export interface Project {
   description: string;
   category: string;
   status: string;
-  progress: number;
   totalTasks?: number;
   completedTasks?: number;
   tags: string[];
@@ -56,33 +55,30 @@ const STORAGE_PROJECTS_CACHE = 'pulsedev_projects_cache';
 const INITIAL_PROJECTS: Project[] = [
   {
     _id: '66b2cf8912e3d4c5b6a78010',
-    title: 'Global Checkout & Payment Engine v2',
+    title: 'Checkout and payment updates',
     key: 'PAY',
-    description: 'High-throughput distributed payment gateway with idempotency keys and sub-50ms fraud scoring.',
-    category: 'Backend Architecture',
+    description: 'Update checkout retries and make sure duplicate payments are handled safely.',
+    category: 'Payments',
     status: 'active',
-    progress: 75,
-    tags: ['Payments', 'Stripe', 'Checkout', 'PCI-DSS'],
+    tags: ['Payments', 'Checkout'],
   },
   {
     _id: '66b2cf8912e3d4c5b6a78020',
-    title: 'Mobile Experience & Offline Sync Engine',
+    title: 'Mobile cart improvements',
     key: 'MOB',
-    description: 'Optimistic local-first state synchronization engine with conflict-free replicated data types.',
-    category: 'Fullstack Platform',
+    description: 'Keep saved carts available after a brief network interruption.',
+    category: 'Mobile',
     status: 'active',
-    progress: 60,
-    tags: ['Mobile', 'OfflineSync', 'DesignSystem', 'Performance'],
+    tags: ['Mobile', 'Cart'],
   },
   {
     _id: '66b2cf8912e3d4c5b6a78030',
-    title: 'Cloud Infrastructure & Auto-Scaling Cluster',
+    title: 'Staging deployment work',
     key: 'OPS',
-    description: 'Zero-downtime multi-region container orchestration and automated failover pipelines.',
-    category: 'DevOps & Cloud',
+    description: 'Move the staging app to a managed container service and document rollback steps.',
+    category: 'Infrastructure',
     status: 'active',
-    progress: 45,
-    tags: ['Kubernetes', 'Cloud', 'CanaryRelease', 'HighAvailability'],
+    tags: ['Staging', 'Deployment'],
   },
 ];
 
@@ -365,18 +361,15 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const createProject = async (data: any) => {
     const actorName = user?.name || 'Admin';
-    const actorAvatar =
-      user?.avatar ||
-      'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=64&h=64&q=80';
+    const actorAvatar = user?.avatar || '';
 
     const optimisticProject: Project = {
       _id: `proj-${Date.now()}`,
-      title: data.title || 'Untitled Initiative',
+      title: data.title || 'Untitled project',
       key: (data.key || 'INIT').toUpperCase(),
       description: data.description || '',
-      category: data.category || 'Fullstack Platform',
+      category: data.category || 'Product',
       status: 'active',
-      progress: 0,
       tags: Array.isArray(data.tags) ? data.tags : [],
     };
 
@@ -390,8 +383,8 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setActiveProject(optimisticProject);
 
     emitInstantNotification({
-      title: `New Initiative: ${optimisticProject.key}`,
-      message: `${actorName} launched initiative "${optimisticProject.title}".`,
+      title: `New project: ${optimisticProject.key}`,
+      message: `${actorName} created the project "${optimisticProject.title}".`,
       type: 'project',
       actorName,
       actorAvatar,

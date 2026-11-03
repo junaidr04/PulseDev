@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { useProjects, Task } from '../context/ProjectContext';
 import { useAuth, User } from '../context/AuthContext';
 import { getRoleTheme } from '../theme/roleTheme';
+import Avatar from '../components/ui/Avatar';
 import {
   Plus,
   Search,
@@ -15,7 +16,6 @@ import {
   Send,
   ShieldCheck,
   RotateCcw,
-  Sparkles,
   Sliders,
 } from 'lucide-react';
 import { FlowButton } from '../components/ui/FlowButton';
@@ -31,8 +31,8 @@ const COLUMNS: {
   dotColor: string;
 }[] = [
   { id: 'backlog', title: 'Backlog', dotColor: 'bg-neutral-500' },
-  { id: 'in_progress', title: 'In Progress', dotColor: 'bg-cyan-400' },
-  { id: 'in_review', title: 'In Review (QA)', dotColor: 'bg-amber-400' },
+  { id: 'in_progress', title: 'In progress', dotColor: 'bg-cyan-400' },
+  { id: 'in_review', title: 'In review', dotColor: 'bg-amber-400' },
   { id: 'completed', title: 'Done', dotColor: 'bg-emerald-400' },
 ];
 
@@ -41,31 +41,26 @@ const TEAM_ASSIGNEES = [
     _id: '66a1bf9823e4d5c6b7a89001',
     name: 'Alex Chen',
     role: 'admin',
-    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=64&h=64&q=80',
   },
   {
     _id: '66a1bf9823e4d5c6b7a89002',
     name: 'Priya Patel',
     role: 'lead',
-    avatar: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?auto=format&fit=crop&w=64&h=64&q=80',
   },
   {
     _id: '66a1bf9823e4d5c6b7a89003',
     name: 'Marcus Vance',
     role: 'developer',
-    avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=64&h=64&q=80',
   },
   {
     _id: '66a1bf9823e4d5c6b7a89004',
     name: 'Sophia Laurent',
     role: 'qa',
-    avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=64&h=64&q=80',
   },
   {
     _id: '66a1bf9823e4d5c6b7a89005',
     name: 'Jordan Blake',
     role: 'guest',
-    avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&w=64&h=64&q=80',
   },
 ];
 
@@ -111,7 +106,7 @@ export function evaluateTaskControl(task: Task, user: User | null): {
       canReprioritize: true,
       isMyTask,
       allowedColumns: ['backlog', 'in_progress', 'in_review', 'completed'],
-      lockReason: 'Admin Full Control',
+      lockReason: 'Admins can manage issues and confirm a QA override.',
     };
   }
 
@@ -153,7 +148,7 @@ export function evaluateTaskControl(task: Task, user: User | null): {
         canReprioritize: false,
         isMyTask,
         allowedColumns: ['in_review', 'completed'],
-        lockReason: 'QA Gate Verification',
+        lockReason: 'QA can pass or reject issues in review.',
       };
     }
     return {
@@ -175,7 +170,7 @@ export function evaluateTaskControl(task: Task, user: User | null): {
       allowedColumns: [],
       lockReason: task.column === 'completed'
         ? 'Done issues cannot be moved by developers.'
-        : `Assigned to ${assigneeName} — Engineers can only move issues assigned to themselves.`,
+        : `Assigned to ${assigneeName}. Developers can only move their own issues.`,
     };
   }
 
@@ -214,7 +209,6 @@ export const SprintBoard: React.FC<SprintBoardProps> = ({ onOpenNewTask }) => {
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
   const [dragOverCol, setDragOverCol] = useState<Task['column'] | null>(null);
-  const [doneBurstTaskId, setDoneBurstTaskId] = useState<string | null>(null);
   const [rejectingTask, setRejectingTask] = useState<Task | null>(null);
   const [rejectionReason, setRejectionReason] = useState('');
   const [rejectionCategory, setRejectionCategory] = useState('');
@@ -230,13 +224,6 @@ export const SprintBoard: React.FC<SprintBoardProps> = ({ onOpenNewTask }) => {
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3400);
-  };
-
-  const triggerDoneBurst = (taskId: string) => {
-    setDoneBurstTaskId(taskId);
-    setTimeout(() => {
-      setDoneBurstTaskId((prev) => (prev === taskId ? null : prev));
-    }, 1400);
   };
 
   const filteredTasks = (tasks || []).filter((task) => {
@@ -279,7 +266,6 @@ export const SprintBoard: React.FC<SprintBoardProps> = ({ onOpenNewTask }) => {
     if (role === 'qa' && task.column === 'in_review' && targetColumn === 'completed') {
       try {
         await approveTask(task._id);
-        triggerDoneBurst(task._id);
       } catch (error) {
         showToast(error instanceof Error ? error.message : 'Could not pass this issue.');
       }
@@ -307,7 +293,6 @@ export const SprintBoard: React.FC<SprintBoardProps> = ({ onOpenNewTask }) => {
 
     try {
       await updateTaskColumn(task._id, targetColumn, overrideQa);
-      if (targetColumn === 'completed') triggerDoneBurst(task._id);
     } catch (error) {
       showToast(error instanceof Error ? error.message : 'Could not update this issue.');
     }
@@ -420,7 +405,7 @@ export const SprintBoard: React.FC<SprintBoardProps> = ({ onOpenNewTask }) => {
             initial={{ opacity: 0, y: 16, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 12, scale: 0.95 }}
-            className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 rounded-xl border border-amber-500/35 bg-[#16181d] px-4 py-2.5 text-xs text-amber-200 shadow-2xl"
+            className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 rounded-lg border border-white/[0.12] bg-[#16181d] px-4 py-2.5 text-xs text-neutral-200"
           >
             <Lock className="h-3.5 w-3.5 text-amber-400 flex-shrink-0" />
             <span>{toastMessage}</span>
@@ -433,14 +418,13 @@ export const SprintBoard: React.FC<SprintBoardProps> = ({ onOpenNewTask }) => {
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <div className="flex items-center gap-2">
-              <span
-                className="font-mono text-xs font-bold"
-                style={{ color: roleTheme.accentHex }}
-              >
-                {activeProject?.key || 'PAY'}
-              </span>
+              {activeProject?.key && (
+                <span className="font-mono text-xs font-semibold text-neutral-400">
+                  {activeProject.key}
+                </span>
+              )}
               <h1 className="text-base font-semibold text-white tracking-tight">
-                {activeProject?.title || 'Global Checkout & Payment Engine v2'}
+                {activeProject?.title || 'Sprint board'}
               </h1>
             </div>
             <p className="text-xs text-neutral-500 mt-0.5">
@@ -508,15 +492,15 @@ export const SprintBoard: React.FC<SprintBoardProps> = ({ onOpenNewTask }) => {
                 {user?.name} ({roleTheme.roleTitle}):
               </strong>{' '}
               {isAdmin &&
-                'Full Architect Authority — Manage any issue, reassign owners, and override a missing QA pass after confirmation. Overrides are audited.'}
+                'Manage issues, reassign owners, and confirm a QA override when needed. Overrides are audited.'}
               {isLead &&
-                'Backend Lead Authority — Reassign, reprioritize, comment, and move issues through Backlog, In Progress, and In Review. QA controls returns from review and must pass issues before they can be Done.'}
+                'Reassign, reprioritize, comment, and move issues between Backlog, In Progress, and In Review. QA must pass issues before Done.'}
               {role === 'developer' &&
-                'Developer Focus — Move only your assigned issues through Backlog, In Progress, and In Review. QA controls returns from review; submit your issues to QA when ready.'}
+                'Move your assigned issues through In Review. QA handles returns and must pass issues before they can be Done.'}
               {isQA &&
-                'Quality Gate Authority — Pass or Reject issues in In Review. A rejection requires a reason.'}
+                'Pass or reject issues in In Review. Add a reason when rejecting.'}
               {isPM &&
-                'Product Manager Studio — Edit issue priority and scope. Product Managers cannot move issues between statuses.'}
+                'Edit issue priority and scope. Product managers cannot move issues between statuses.'}
             </span>
           </div>
           <span className="font-mono text-[11px] text-neutral-400">
@@ -588,18 +572,12 @@ export const SprintBoard: React.FC<SprintBoardProps> = ({ onOpenNewTask }) => {
                         Drop issue here
                       </div>
                     ) : (
-                      colTasks.map((task, idx) => {
+                      colTasks.map((task) => {
                         const nextCol = getNextColumn(task.column);
                         const prio = getPriorityBadge(task.priority);
-                        const globalIdx = tasks.findIndex((t) => t._id === task._id);
-                        const issueCode = `${activeProject?.key || 'PAY'}-${101 + (globalIdx >= 0 ? globalIdx : idx)}`;
                         const assigneeName = task.assignee?.name || 'Marcus Vance';
-                        const assigneeAvatar =
-                          task.assignee?.avatar ||
-                          'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=64&h=64&q=80';
 
                         const perm = evaluateTaskControl(task, user);
-                        const showBurst = doneBurstTaskId === task._id;
 
                         return (
                           <motion.div
@@ -627,28 +605,11 @@ export const SprintBoard: React.FC<SprintBoardProps> = ({ onOpenNewTask }) => {
                                 : 'border-white/[0.05] bg-[#101216]/80 hover:border-white/[0.12]'
                             }`}
                           >
-                            {/* Confetti / Check-Burst Overlay when moved to Done */}
-                            <AnimatePresence>
-                              {showBurst && (
-                                <motion.div
-                                  initial={{ opacity: 0, scale: 0.6 }}
-                                  animate={{ opacity: 1, scale: 1 }}
-                                  exit={{ opacity: 0, scale: 1.15 }}
-                                  className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center rounded-lg bg-emerald-500/20 backdrop-blur-[2px]"
-                                >
-                                  <div className="flex items-center gap-1.5 rounded-full border border-emerald-400/60 bg-[#090d14] px-3 py-1 text-xs font-mono font-bold text-emerald-300 shadow-lg">
-                                    <Sparkles className="h-3.5 w-3.5 text-emerald-400" />
-                                    <span>SHIPPED TO DONE!</span>
-                                  </div>
-                                </motion.div>
-                              )}
-                            </AnimatePresence>
-
                             {/* Top Meta Row: Issue ID + Priority (or PM Priority Selector) + Role Status */}
                             <div className="flex items-center justify-between gap-2 mb-1.5">
                               <div className="flex items-center gap-2">
                                 <span className="font-mono text-[11px] text-neutral-400">
-                                  {issueCode}
+                                  {task._id}
                                 </span>
                                 {isPM ? (
                                   <select
@@ -687,7 +648,7 @@ export const SprintBoard: React.FC<SprintBoardProps> = ({ onOpenNewTask }) => {
                                   >
                                     <Lock className="h-3 w-3 text-amber-400/80" />
                                     <span>{assigneeName.split(' ')[0]}&apos;s scope</span>
-                                    <div className="pointer-events-none invisible group-hover/lock:visible opacity-0 group-hover/lock:opacity-100 transition-opacity absolute right-0 top-full mt-1.5 z-30 w-56 rounded-lg border border-amber-400/30 bg-[#0b0e15] p-2 text-[10px] leading-relaxed text-neutral-200 shadow-2xl">
+                                    <div className="pointer-events-none invisible group-hover/lock:visible opacity-0 group-hover/lock:opacity-100 transition-opacity absolute right-0 top-full mt-1.5 z-30 w-56 rounded-lg border border-white/[0.12] bg-[#0b0e15] p-2 text-[10px] leading-relaxed text-neutral-200">
                                       {perm.lockReason}
                                     </div>
                                   </div>
@@ -751,11 +712,7 @@ export const SprintBoard: React.FC<SprintBoardProps> = ({ onOpenNewTask }) => {
                                   if (perm.canReassign) e.stopPropagation();
                                 }}
                               >
-                                <img
-                                  src={assigneeAvatar}
-                                  alt={assigneeName}
-                                  className="h-4.5 w-4.5 rounded-full object-cover flex-shrink-0"
-                                />
+                                <Avatar name={assigneeName} className="h-5 w-5 text-[8px]" />
                                 {perm.canReassign ? (
                                   <select
                                     value={task.assignee?._id || task.assigneeId}
@@ -874,11 +831,11 @@ export const SprintBoard: React.FC<SprintBoardProps> = ({ onOpenNewTask }) => {
       {/* Issue Detail Modal */}
       {liveSelectedTask && selectedTaskPerm && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/65 backdrop-blur-sm p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/65 p-4"
           onClick={() => setSelectedTask(null)}
         >
           <div
-            className="w-full max-w-xl rounded-xl border border-white/[0.1] bg-[#111317] p-6 shadow-2xl space-y-5"
+            className="w-full max-w-xl rounded-lg border border-white/[0.1] bg-[#111317] p-6 space-y-5"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-start justify-between gap-4 border-b border-white/[0.07] pb-4">
@@ -1112,13 +1069,13 @@ export const SprintBoard: React.FC<SprintBoardProps> = ({ onOpenNewTask }) => {
 
       {rejectingTask && (
         <div
-          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 p-4"
           onClick={() => !isSubmittingRejection && setRejectingTask(null)}
         >
           <form
             onSubmit={handleRejectSubmit}
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-md space-y-4 rounded-xl border border-white/[0.1] bg-[#111317] p-5 shadow-2xl"
+            className="w-full max-w-md space-y-4 rounded-lg border border-white/[0.1] bg-[#111317] p-5"
           >
             <div className="flex items-start justify-between gap-3">
               <div>

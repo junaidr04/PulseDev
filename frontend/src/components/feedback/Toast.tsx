@@ -13,7 +13,7 @@ export const Toast: React.FC<ToastProps> = ({ message, type = 'info' }) => {
   };
 
   return (
-    <div className={`rounded-xl border px-4 py-2.5 text-xs font-medium shadow-xl ${styles[type]}`}>
+    <div className={`rounded-lg border px-4 py-2.5 text-xs font-medium ${styles[type]}`}>
       {message}
     </div>
   );
