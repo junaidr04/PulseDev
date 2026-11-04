@@ -4,6 +4,7 @@ import api from '../services/api';
 import { PulseBrandLogo } from '../components/Navbar';
 import Avatar from '../components/ui/Avatar';
 import Modal from '../components/ui/Modal';
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import {
   Lock,
   Mail,
@@ -68,6 +69,7 @@ export const Login: React.FC<LoginProps> = ({ onNavigate }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isForgotOpen, setIsForgotOpen] = useState(false);
+  const reducedMotion = useReducedMotion();
 
   const loadLivePersonas = async () => {
     try {
@@ -133,7 +135,12 @@ export const Login: React.FC<LoginProps> = ({ onNavigate }) => {
 
   return (
     <div className="flex-1 flex items-center justify-center bg-slate-950 p-6 overflow-y-auto">
-      <div className="w-full max-w-lg space-y-5 my-auto">
+      <motion.div
+        initial={reducedMotion ? false : { opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: reducedMotion ? 0 : 0.32, ease: 'easeOut' }}
+        className="w-full max-w-lg space-y-5 my-auto"
+      >
         {/* Brand */}
         <div className="flex flex-col items-center text-center">
           <div className="mb-3">
@@ -153,13 +160,22 @@ export const Login: React.FC<LoginProps> = ({ onNavigate }) => {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-            {personas.map((p) => {
+            {personas.map((p, index) => {
               const isSelected = email.toLowerCase() === p.email.toLowerCase();
               return (
-                <button
+                <motion.button
                   key={p.email}
                   type="button"
                   onClick={() => handleSelectPersona(p)}
+                  initial={reducedMotion ? false : { opacity: 0, y: 5 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{
+                    duration: reducedMotion ? 0 : 0.2,
+                    delay: reducedMotion ? 0 : index * 0.045,
+                    ease: 'easeOut',
+                  }}
+                  whileHover={reducedMotion ? undefined : { y: -1 }}
+                  whileTap={reducedMotion ? undefined : { scale: 0.99 }}
                   className={`rounded-xl border p-3 text-left transition-all cursor-pointer ${
                     isSelected
                       ? 'border-emerald-500/40 bg-emerald-500/[0.06] text-white'
@@ -187,7 +203,7 @@ export const Login: React.FC<LoginProps> = ({ onNavigate }) => {
                   <div className="mt-2 pt-1.5 border-t border-white/[0.06] flex items-center justify-between text-[10px] font-mono">
                     <span className="text-slate-500 truncate">{p.email}</span>
                   </div>
-                </button>
+                </motion.button>
               );
             })}
           </div>
@@ -199,8 +215,21 @@ export const Login: React.FC<LoginProps> = ({ onNavigate }) => {
           autoComplete="off"
           className="rounded-lg border border-slate-800 bg-slate-900 p-6 space-y-4 text-xs"
         >
+          <AnimatePresence initial={false}>
           {error && (
-            <div className="flex flex-col gap-2 rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 text-rose-400">
+            <motion.div
+              key={error}
+              initial={reducedMotion ? false : { opacity: 0, y: -4 }}
+              animate={
+                reducedMotion
+                  ? { opacity: 1 }
+                  : { opacity: 1, y: 0, x: [0, -5, 5, -3, 3, 0] }
+              }
+              exit={{ opacity: 0, y: reducedMotion ? 0 : -3 }}
+              transition={{ duration: reducedMotion ? 0 : 0.24, ease: 'easeOut' }}
+              role="alert"
+              className="flex flex-col gap-2 rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 text-rose-400"
+            >
               <div className="flex items-start gap-2">
                 <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5" />
                 <span className="leading-relaxed">{error}</span>
@@ -214,8 +243,9 @@ export const Login: React.FC<LoginProps> = ({ onNavigate }) => {
                   Need help recovering your password?
                 </button>
               </div>
-            </div>
+            </motion.div>
           )}
+          </AnimatePresence>
 
           <div>
             <label className="block font-medium text-slate-300">Email</label>
@@ -228,7 +258,7 @@ export const Login: React.FC<LoginProps> = ({ onNavigate }) => {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="name@example.com"
-                className="w-full rounded-xl border border-slate-800 bg-slate-950 pl-9 pr-3 py-2 text-white placeholder-slate-500 focus:border-emerald-500 focus:outline-none"
+                className="w-full rounded-xl border border-slate-800 bg-slate-950 pl-9 pr-3 py-2 text-white placeholder-slate-500 transition-colors duration-150 focus:border-emerald-500 focus:outline-none"
               />
             </div>
           </div>
@@ -258,7 +288,7 @@ export const Login: React.FC<LoginProps> = ({ onNavigate }) => {
                     ? `Enter password for ${selectedPersona.label}`
                     : 'Enter your account password'
                 }
-                className="w-full rounded-xl border border-slate-800 bg-slate-950 pl-9 pr-9 py-2 text-white placeholder-slate-500 focus:border-emerald-500 focus:outline-none"
+                className="w-full rounded-xl border border-slate-800 bg-slate-950 pl-9 pr-9 py-2 text-white placeholder-slate-500 transition-colors duration-150 focus:border-emerald-500 focus:outline-none"
               />
               <button
                 type="button"
@@ -271,14 +301,17 @@ export const Login: React.FC<LoginProps> = ({ onNavigate }) => {
             </div>
           </div>
 
-          <button
+          <motion.button
             type="submit"
             disabled={loading}
-            className="w-full flex items-center justify-center gap-2 rounded-xl bg-emerald-700 py-2.5 font-medium text-white transition-colors hover:bg-emerald-600 active:scale-[0.99] disabled:opacity-50 cursor-pointer"
+            whileHover={reducedMotion || loading ? undefined : { y: -1 }}
+            whileTap={reducedMotion || loading ? undefined : { scale: 0.985 }}
+            transition={{ duration: reducedMotion ? 0 : 0.14, ease: 'easeOut' }}
+            className="w-full flex items-center justify-center gap-2 rounded-xl bg-emerald-700 py-2.5 font-medium text-white transition-colors hover:bg-emerald-600 disabled:opacity-50 cursor-pointer"
           >
             <span>{loading ? 'Signing in...' : 'Sign in'}</span>
             <ArrowRight className="h-4 w-4" />
-          </button>
+          </motion.button>
 
           <div className="flex items-center justify-between pt-2 text-xs">
             <div>
@@ -300,7 +333,7 @@ export const Login: React.FC<LoginProps> = ({ onNavigate }) => {
             </button>
           </div>
         </form>
-      </div>
+      </motion.div>
 
       {/* Password recovery notice */}
       <Modal

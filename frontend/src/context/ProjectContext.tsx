@@ -362,6 +362,7 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const createProject = async (data: any) => {
     const actorName = user?.name || 'Admin';
     const actorAvatar = user?.avatar || '';
+    const previousActiveProject = activeProject;
 
     const optimisticProject: Project = {
       _id: `proj-${Date.now()}`,
@@ -382,23 +383,34 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
     });
     setActiveProject(optimisticProject);
 
-    emitInstantNotification({
-      title: `New project: ${optimisticProject.key}`,
-      message: `${actorName} created the project "${optimisticProject.title}".`,
-      type: 'project',
-      actorName,
-      actorAvatar,
-    });
-
     try {
       const res = await api.projects.create(data);
-      if (res.success && res.project) {
-        triggerNotificationRefresh();
-        await loadProjects();
-        setActiveProject(res.project);
+      if (!res.success || !res.project) {
+        throw new Error(res.message || 'Could not create project.');
       }
-    } catch {
-      // Keep optimistic project in workspace state
+
+      triggerNotificationRefresh();
+      await loadProjects();
+      setActiveProject(res.project);
+      emitInstantNotification({
+        title: `New project: ${optimisticProject.key}`,
+        message: `${actorName} created the project "${optimisticProject.title}".`,
+        type: 'project',
+        actorName,
+        actorAvatar,
+      });
+    } catch (error) {
+      setProjects((prev) => {
+        const updated = prev.filter((project) => project._id !== optimisticProject._id);
+        try {
+          localStorage.setItem(STORAGE_PROJECTS_CACHE, JSON.stringify(updated));
+        } catch {
+          // Keep the in-memory rollback if browser storage is unavailable.
+        }
+        return updated;
+      });
+      if (previousActiveProject) setActiveProject(previousActiveProject);
+      throw error instanceof Error ? error : new Error('Could not create project.');
     }
   };
 

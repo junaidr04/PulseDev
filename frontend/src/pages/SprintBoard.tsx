@@ -904,39 +904,19 @@ export const SprintBoard: React.FC<SprintBoardProps> = ({ onOpenNewTask }) => {
       </Modal>
 
       {/* Issue Detail Modal */}
-      {liveSelectedTask && selectedTaskPerm && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/65 p-4"
-          onClick={() => setSelectedTask(null)}
-        >
-          <div
-            className="w-full max-w-xl rounded-lg border border-white/[0.1] bg-[#111317] p-6 space-y-5"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-start justify-between gap-4 border-b border-white/[0.07] pb-4">
-              <div>
-                <div className="flex items-center gap-2 text-xs text-neutral-400 mb-1">
-                  <span className="font-mono">{activeProject?.key || 'PAY'}</span>
-                  <span>·</span>
-                  <span>
-                    Assigned to{' '}
-                    <strong className="text-white">
-                      {liveSelectedTask.assignee?.name || 'Marcus Vance'}
-                    </strong>
-                  </span>
-                </div>
-                <h2 className="text-base font-semibold text-white">
-                  {liveSelectedTask.title}
-                </h2>
-              </div>
-              <button
-                onClick={() => setSelectedTask(null)}
-                className="text-neutral-500 hover:text-white p-1 cursor-pointer"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-
+      <Modal
+        open={Boolean(liveSelectedTask && selectedTaskPerm)}
+        title={liveSelectedTask?.title || 'Issue details'}
+        description={
+          liveSelectedTask
+            ? `${activeProject?.key || 'PAY'} · Assigned to ${liveSelectedTask.assignee?.name || 'Marcus Vance'}`
+            : undefined
+        }
+        onClose={() => setSelectedTask(null)}
+        className="max-w-xl space-y-5"
+      >
+        {liveSelectedTask && selectedTaskPerm && (
+          <div className="space-y-5">
             {liveSelectedTask.rejectionHistory?.length ? (
               <div className="space-y-2 rounded-lg border border-rose-400/25 bg-rose-400/[0.06] p-3">
                 {liveSelectedTask.rejectionHistory.slice().reverse().map((rejection, index) => (
@@ -1139,35 +1119,21 @@ export const SprintBoard: React.FC<SprintBoardProps> = ({ onOpenNewTask }) => {
               )}
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </Modal>
 
-      {rejectingTask && (
-        <div
-          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 p-4"
-          onClick={() => !isSubmittingRejection && setRejectingTask(null)}
-        >
+      <Modal
+        open={Boolean(rejectingTask)}
+        title="Reject issue"
+        description={rejectingTask?.title}
+        onClose={() => setRejectingTask(null)}
+        closeDisabled={isSubmittingRejection}
+        className="max-w-md"
+      >
           <form
             onSubmit={handleRejectSubmit}
-            onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-md space-y-4 rounded-lg border border-white/[0.1] bg-[#111317] p-5"
+            className="space-y-4"
           >
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <h2 className="text-sm font-semibold text-white">Reject issue</h2>
-                <p className="mt-1 text-xs text-neutral-400">{rejectingTask.title}</p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setRejectingTask(null)}
-                disabled={isSubmittingRejection}
-                className="text-neutral-500 hover:text-white disabled:opacity-50"
-                aria-label="Close rejection form"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-
             <label className="block space-y-1.5">
               <span className="text-xs font-medium text-neutral-300">Reason <span className="text-rose-300">*</span></span>
               <textarea
@@ -1216,8 +1182,7 @@ export const SprintBoard: React.FC<SprintBoardProps> = ({ onOpenNewTask }) => {
               </button>
             </div>
           </form>
-        </div>
-      )}
+      </Modal>
     </div>
   );
 };

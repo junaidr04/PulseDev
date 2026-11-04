@@ -9,12 +9,15 @@ interface ModalProps {
   onClose: () => void;
   children: React.ReactNode;
   closeOnBackdrop?: boolean;
+  closeDisabled?: boolean;
   initialFocusRef?: React.RefObject<HTMLElement | null>;
   className?: string;
 }
 
 const FOCUSABLE_SELECTOR =
   'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+const modalStack: string[] = [];
 
 export const Modal: React.FC<ModalProps> = ({
   open,
@@ -23,22 +26,27 @@ export const Modal: React.FC<ModalProps> = ({
   onClose,
   children,
   closeOnBackdrop = true,
+  closeDisabled = false,
   initialFocusRef,
   className = '',
 }) => {
   const titleId = useId();
   const descriptionId = useId();
+  const modalId = useId();
   const panelRef = useRef<HTMLDivElement>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
   const onCloseRef = useRef(onClose);
+  const closeDisabledRef = useRef(closeDisabled);
   const initialFocusRefRef = useRef(initialFocusRef);
   const reducedMotion = useReducedMotion();
   onCloseRef.current = onClose;
+  closeDisabledRef.current = closeDisabled;
   initialFocusRefRef.current = initialFocusRef;
 
   useEffect(() => {
     if (!open) return;
 
+    modalStack.push(modalId);
     previousFocusRef.current =
       document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const previousOverflow = document.body.style.overflow;
@@ -56,9 +64,10 @@ export const Modal: React.FC<ModalProps> = ({
 
     const frame = window.requestAnimationFrame(focusInitial);
     const handleKeyDown = (event: KeyboardEvent) => {
+      if (modalStack[modalStack.length - 1] !== modalId) return;
       if (event.key === 'Escape') {
         event.preventDefault();
-        onCloseRef.current();
+        if (!closeDisabledRef.current) onCloseRef.current();
         return;
       }
       if (event.key !== 'Tab' || !panelRef.current) return;
@@ -88,9 +97,11 @@ export const Modal: React.FC<ModalProps> = ({
       window.cancelAnimationFrame(frame);
       document.removeEventListener('keydown', handleKeyDown);
       document.body.style.overflow = previousOverflow;
+      const stackIndex = modalStack.lastIndexOf(modalId);
+      if (stackIndex !== -1) modalStack.splice(stackIndex, 1);
       previousFocusRef.current?.focus();
     };
-  }, [open]);
+  }, [modalId, open]);
 
   const duration = reducedMotion ? 0 : 0.18;
 
@@ -104,7 +115,14 @@ export const Modal: React.FC<ModalProps> = ({
           exit={{ opacity: 0 }}
           transition={{ duration, ease: 'easeOut' }}
           onMouseDown={(event) => {
-            if (closeOnBackdrop && event.target === event.currentTarget) onClose();
+            if (
+              modalStack[modalStack.length - 1] === modalId &&
+              !closeDisabledRef.current &&
+              closeOnBackdrop &&
+              event.target === event.currentTarget
+            ) {
+              onClose();
+            }
           }}
         >
           <motion.div
@@ -134,8 +152,9 @@ export const Modal: React.FC<ModalProps> = ({
               <button
                 type="button"
                 aria-label="Close dialog"
+                disabled={closeDisabled}
                 onClick={onClose}
-                className="rounded-md p-1 text-neutral-400 transition-colors hover:bg-white/[0.06] hover:text-white"
+                className="rounded-md p-1 text-neutral-400 transition-colors hover:bg-white/[0.06] hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <X className="h-4 w-4" />
               </button>

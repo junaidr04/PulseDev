@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import Avatar from '../components/ui/Avatar';
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import api from '../services/api';
 import {
   Shield,
@@ -76,6 +77,7 @@ interface ProfileProps {
 
 export const Profile: React.FC<ProfileProps> = ({ onNavigate }) => {
   const { user, updateOwnProfile, logout, changePassword } = useAuth();
+  const reducedMotion = useReducedMotion();
   const [teamMembers, setTeamMembers] = useState<any[]>(FALLBACK_TEAM);
   const [activeTab, setActiveTab] = useState<'directory' | 'settings'>(() => {
     const saved = sessionStorage.getItem('pulsedev_profile_tab');
@@ -705,8 +707,16 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigate }) => {
             )}
 
             {/* Selected Team Member Public Profile Drawer/Card */}
+            <AnimatePresence initial={false}>
             {selectedMemberProfile && (
-              <div className="rounded-lg border border-white/[0.12] bg-[#11151f] p-5">
+              <motion.div
+                key={selectedMemberProfile._id || selectedMemberProfile.email}
+                initial={reducedMotion ? false : { opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={reducedMotion ? { opacity: 0 } : { opacity: 0, y: 4 }}
+                transition={{ duration: reducedMotion ? 0 : 0.18, ease: 'easeOut' }}
+                className="rounded-lg border border-white/[0.12] bg-[#11151f] p-5"
+              >
                 <div className="flex items-start justify-between border-b border-white/[0.07] pb-4">
                   <div className="flex items-center gap-3.5">
                     <Avatar name={selectedMemberProfile.name} className="h-12 w-12 rounded-xl text-sm" />
@@ -801,8 +811,9 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigate }) => {
                       </div>
                     </div>
                   )}
-              </div>
+              </motion.div>
             )}
+            </AnimatePresence>
           </div>
         </div>
       </div>
