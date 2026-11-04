@@ -136,9 +136,9 @@ export const Login: React.FC<LoginProps> = ({ onNavigate }) => {
   return (
     <div className="flex-1 flex items-center justify-center bg-slate-950 p-6 overflow-y-auto">
       <motion.div
-        initial={reducedMotion ? false : { opacity: 0, y: 10 }}
+        initial={reducedMotion ? false : { opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: reducedMotion ? 0 : 0.32, ease: 'easeOut' }}
+        transition={{ duration: reducedMotion ? 0 : 0.45, ease: 'easeOut' }}
         className="w-full max-w-lg space-y-5 my-auto"
       >
         {/* Brand */}
@@ -170,8 +170,8 @@ export const Login: React.FC<LoginProps> = ({ onNavigate }) => {
                   initial={reducedMotion ? false : { opacity: 0, y: 5 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{
-                    duration: reducedMotion ? 0 : 0.2,
-                    delay: reducedMotion ? 0 : index * 0.045,
+                    duration: reducedMotion ? 0 : 0.24,
+                    delay: reducedMotion ? 0 : index * 0.07,
                     ease: 'easeOut',
                   }}
                   whileHover={reducedMotion ? undefined : { y: -1 }}

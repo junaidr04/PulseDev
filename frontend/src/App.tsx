@@ -159,10 +159,10 @@ const AppContent: React.FC = () => {
             <AnimatePresence mode="wait" initial={false}>
               <motion.div
                 key={`${isAuthenticated ? 'workspace' : 'auth'}-${currentRoute}`}
-                initial={reducedMotion ? false : { opacity: 0, y: 5 }}
+                initial={reducedMotion ? false : { opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
-                exit={reducedMotion ? { opacity: 0 } : { opacity: 0, y: -3 }}
-                transition={{ duration: reducedMotion ? 0 : 0.18, ease: 'easeOut' }}
+                exit={reducedMotion ? { opacity: 0 } : { opacity: 0, y: -5 }}
+                transition={{ duration: reducedMotion ? 0 : 0.24, ease: 'easeOut' }}
                 className="flex h-full w-full flex-1 flex-col overflow-hidden"
               >
                 {!isAuthenticated ? (
