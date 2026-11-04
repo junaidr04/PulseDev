@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { useProjects, Task } from '../context/ProjectContext';
 import { useAuth, User } from '../context/AuthContext';
 import { getRoleTheme } from '../theme/roleTheme';
 import Avatar from '../components/ui/Avatar';
+import Modal from '../components/ui/Modal';
 import {
   Plus,
   Search,
@@ -213,6 +214,9 @@ export const SprintBoard: React.FC<SprintBoardProps> = ({ onOpenNewTask }) => {
   const [rejectionReason, setRejectionReason] = useState('');
   const [rejectionCategory, setRejectionCategory] = useState('');
   const [isSubmittingRejection, setIsSubmittingRejection] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<Task | null>(null);
+  const [qaOverrideTarget, setQaOverrideTarget] = useState<Task | null>(null);
+  const reducedMotion = useReducedMotion();
 
   const role = user?.role || 'guest';
   const roleTheme = getRoleTheme(role);
@@ -287,7 +291,8 @@ export const SprintBoard: React.FC<SprintBoardProps> = ({ onOpenNewTask }) => {
     }
 
     const overrideQa = isAdmin && targetColumn === 'completed' && task.column !== 'completed';
-    if (overrideQa && !window.confirm('This issue has no QA pass. Ship anyway?')) {
+    if (overrideQa) {
+      setQaOverrideTarget(task);
       return;
     }
 
@@ -310,11 +315,29 @@ export const SprintBoard: React.FC<SprintBoardProps> = ({ onOpenNewTask }) => {
   };
 
   const handleDeleteTask = async (task: Task) => {
+    setDeleteTarget(task);
+  };
+
+  const confirmDeleteTask = async () => {
+    if (!deleteTarget) return;
     try {
-      await deleteTask(task._id);
+      await deleteTask(deleteTarget._id);
       showToast('Issue deleted.');
+      setDeleteTarget(null);
     } catch (error) {
       showToast(error instanceof Error ? error.message : 'Could not delete this issue.');
+    }
+  };
+
+  const confirmQaOverride = async () => {
+    if (!qaOverrideTarget) return;
+    try {
+      await updateTaskColumn(qaOverrideTarget._id, 'completed', true);
+      setQaOverrideTarget(null);
+      showToast('Issue shipped with an admin override.');
+    } catch (error) {
+      setQaOverrideTarget(null);
+      showToast(error instanceof Error ? error.message : 'Could not ship this issue.');
     }
   };
 
@@ -583,9 +606,8 @@ export const SprintBoard: React.FC<SprintBoardProps> = ({ onOpenNewTask }) => {
                           <motion.div
                             layout
                             transition={{
-                              type: 'spring',
-                              stiffness: 420,
-                              damping: 30,
+                              duration: reducedMotion ? 0 : 0.18,
+                              ease: 'easeOut',
                             }}
                             key={task._id}
                             draggable={perm.canControl}
@@ -827,6 +849,59 @@ export const SprintBoard: React.FC<SprintBoardProps> = ({ onOpenNewTask }) => {
           </div>
         )}
       </div>
+
+      <Modal
+        open={Boolean(deleteTarget)}
+        title="Delete issue?"
+        description={deleteTarget?.title}
+        onClose={() => setDeleteTarget(null)}
+        className="max-w-md"
+      >
+        <p className="mb-5 text-sm text-neutral-300">
+          This issue will be removed from the project.
+        </p>
+        <div className="flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={() => setDeleteTarget(null)}
+            className="rounded-md border border-white/[0.12] px-3 py-2 text-xs text-neutral-300 hover:bg-white/[0.05]"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={() => void confirmDeleteTask()}
+            className="rounded-md bg-rose-700 px-3 py-2 text-xs font-medium text-white hover:bg-rose-600"
+          >
+            Delete
+          </button>
+        </div>
+      </Modal>
+
+      <Modal
+        open={Boolean(qaOverrideTarget)}
+        title="Ship without a QA pass?"
+        description="This issue has no QA pass. Ship anyway?"
+        onClose={() => setQaOverrideTarget(null)}
+        className="max-w-md"
+      >
+        <div className="flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={() => setQaOverrideTarget(null)}
+            className="rounded-md border border-white/[0.12] px-3 py-2 text-xs text-neutral-300 hover:bg-white/[0.05]"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={() => void confirmQaOverride()}
+            className="rounded-md bg-white px-3 py-2 text-xs font-medium text-[#090b10] hover:bg-neutral-200"
+          >
+            Ship anyway
+          </button>
+        </div>
+      </Modal>
 
       {/* Issue Detail Modal */}
       {liveSelectedTask && selectedTaskPerm && (

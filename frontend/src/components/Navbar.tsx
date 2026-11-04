@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { useProjects } from '../context/ProjectContext';
 import NotificationPopover from './NotificationPopover';
 import Avatar from './ui/Avatar';
+import Popover from './ui/Popover';
 import { getRoleTheme } from '../theme/roleTheme';
 import {
   ChevronDown,
@@ -43,6 +44,9 @@ export const Navbar: React.FC<NavbarProps> = ({
   const [globalQuery, setGlobalQuery] = useState('');
   const searchRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const searchTriggerRef = useRef<HTMLButtonElement>(null);
+  const accountRef = useRef<HTMLDivElement>(null);
+  const accountTriggerRef = useRef<HTMLButtonElement>(null);
 
   // Global ⌘K / Ctrl+K shortcut for Command Palette
   useEffect(() => {
@@ -57,16 +61,6 @@ export const Navbar: React.FC<NavbarProps> = ({
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
-
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
-        setSearchOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
   const matchedTasks = globalQuery.trim()
@@ -123,9 +117,9 @@ export const Navbar: React.FC<NavbarProps> = ({
               {/* Mobile (<640px) Search Icon Button (44x44px minimum touch target) */}
               <button
                 type="button"
+                ref={searchTriggerRef}
                 onClick={() => {
                   setSearchOpen((prev) => !prev);
-                  setTimeout(() => searchInputRef.current?.focus(), 40);
                 }}
                 aria-label="Open Command Palette Search"
                 title="Search (⌘K)"
@@ -139,6 +133,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <Search className="absolute left-3 h-3.5 w-3.5 text-neutral-500 pointer-events-none" />
                 <input
                   type="text"
+                  ref={searchInputRef}
                   value={globalQuery}
                   onFocus={() => setSearchOpen(true)}
                   onChange={(e) => {
@@ -164,116 +159,87 @@ export const Navbar: React.FC<NavbarProps> = ({
               </div>
 
               {/* Grouped Command Palette Results (Responsive on Mobile & Desktop) */}
-              {searchOpen && (
-                <div className="fixed left-3 right-3 top-16 sm:absolute sm:left-auto sm:right-0 sm:top-full sm:mt-2 w-auto sm:w-96 max-w-[calc(100vw-24px)] rounded-lg border border-white/[0.12] bg-[#11151f] p-2.5 z-50 space-y-2 overflow-hidden">
-                  {/* Mobile Search Input inside Command Palette */}
-                  <div className="relative flex sm:hidden items-center pb-1">
-                    <Search className="absolute left-3 h-3.5 w-3.5 text-neutral-400 pointer-events-none" />
-                    <input
-                      ref={searchInputRef}
-                      type="text"
-                      value={globalQuery}
-                      onChange={(e) => setGlobalQuery(e.target.value)}
-                      placeholder="Search issues and projects"
-                      className="h-10 w-full rounded-xl border border-white/[0.1] bg-[#0c0f17] pl-8 pr-9 text-xs text-white placeholder-neutral-500 focus:border-emerald-400/50 focus:outline-none"
-                    />
-                    {globalQuery && (
-                      <button
-                        onClick={() => setGlobalQuery('')}
-                        className="absolute right-2.5 text-neutral-400 hover:text-white p-1"
-                      >
-                        <X className="h-3.5 w-3.5" />
-                      </button>
-                    )}
-                  </div>
-                  <div className="flex items-center justify-between px-2.5 py-1 border-b border-white/[0.06] text-[10px] text-neutral-500 font-mono">
-                    <span className="flex items-center gap-1">
-                      <Command className="h-3 w-3 text-neutral-400" />
-                      <span>Search</span>
-                    </span>
-                    <button
-                      onClick={() => setSearchOpen(false)}
-                      className="text-neutral-400 hover:text-white cursor-pointer"
-                    >
-                      ESC
-                    </button>
-                  </div>
-
-                  {matchedProjects.length === 0 && matchedTasks.length === 0 ? (
-                    <div className="py-6 text-center text-xs text-neutral-500">
-                      No matching results for "{globalQuery}"
-                    </div>
-                  ) : (
-                    <>
-                      {matchedProjects.length > 0 && (
-                        <div>
-                          <div className="px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-neutral-500">
-                            Projects
-                          </div>
-                          {matchedProjects.map((p) => (
-                            <button
-                              key={p._id}
-                              onClick={() => {
-                                setActiveProject(p);
-                                onNavigate('board');
-                                setSearchOpen(false);
-                              }}
-                              className="flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-left text-xs text-neutral-200 hover:bg-white/[0.06] cursor-pointer"
-                            >
-                              <div className="flex items-center gap-2 truncate">
-                                <FolderGit2 className="h-3.5 w-3.5 text-emerald-400 flex-shrink-0" />
-                                <span className="truncate">{p.title}</span>
-                              </div>
-                              <span className="font-mono text-[10px] text-neutral-500">{p.key}</span>
-                            </button>
-                          ))}
-                        </div>
-                      )}
-
-                      {matchedTasks.length > 0 && (
-                        <div>
-                          <div className="px-2.5 py-1 text-xs font-medium text-neutral-500">
-                          Tasks
-                          </div>
-                          {matchedTasks.slice(0, 5).map((t) => (
-                            <button
-                              key={t._id}
-                              onClick={() => {
-                                onNavigate('board');
-                                setSearchOpen(false);
-                              }}
-                              className="flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-left text-xs text-neutral-200 hover:bg-white/[0.06] cursor-pointer"
-                            >
-                              <div className="flex items-center gap-2 truncate">
-                                <CheckCircle2 className="h-3.5 w-3.5 text-cyan-400 flex-shrink-0" />
-                                <span className="truncate">{t.title}</span>
-                              </div>
-                              <span className="text-[10px] text-neutral-500 capitalize">
-                                {t.column.replace('_', ' ')}
-                              </span>
-                            </button>
-                          ))}
-                        </div>
-                      )}
-
-                      <div className="border-t border-white/[0.06] pt-1.5">
-                        <button
-                          onClick={() => {
-                            onNavigate('ai');
-                            setSearchOpen(false);
-                          }}
-                          className="flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-left text-xs text-neutral-200 hover:bg-white/[0.06] cursor-pointer"
-                        >
-                          <div className="flex items-center gap-2">
-                            <span>Planning tools</span>
-                          </div>
-                          <span className="font-mono text-[10px] text-emerald-400/80">G A</span>
-                        </button>
-                      </div>
-                    </>
-                  )}
+              <Popover
+                open={searchOpen}
+                onClose={() => setSearchOpen(false)}
+                label="Search results"
+                containerRef={searchRef}
+                triggerRef={searchTriggerRef}
+                initialFocusRef={searchInputRef}
+                className="fixed left-3 right-3 top-16 max-w-[calc(100vw-24px)] space-y-2 overflow-hidden rounded-lg border border-white/[0.12] bg-[#11151f] p-2.5 sm:absolute sm:left-auto sm:right-0 sm:top-full sm:mt-2 sm:w-96"
+              >
+                <div className="relative flex items-center pb-1 sm:hidden">
+                  <Search className="pointer-events-none absolute left-3 h-3.5 w-3.5 text-neutral-400" />
+                  <input
+                    type="text"
+                    value={globalQuery}
+                    onChange={(e) => setGlobalQuery(e.target.value)}
+                    placeholder="Search issues and projects"
+                    className="h-10 w-full rounded-lg border border-white/[0.1] bg-[#0c0f17] pl-8 pr-9 text-xs text-white placeholder-neutral-500 focus:border-white/[0.2] focus:outline-none"
+                  />
                 </div>
-              )}
+                <div className="flex items-center justify-between border-b border-white/[0.06] px-2.5 py-1 text-[10px] text-neutral-500">
+                  <span className="flex items-center gap-1">
+                    <Command className="h-3 w-3 text-neutral-400" />
+                    <span>Search</span>
+                  </span>
+                  <span>Esc to close</span>
+                </div>
+
+                {matchedProjects.length === 0 && matchedTasks.length === 0 ? (
+                  <div className="py-6 text-center text-xs text-neutral-500">
+                    No matching results for “{globalQuery}”
+                  </div>
+                ) : (
+                  <>
+                    {matchedProjects.length > 0 && (
+                      <div>
+                        <div className="px-2.5 py-1 text-xs font-medium text-neutral-500">Projects</div>
+                        {matchedProjects.map((project) => (
+                          <button
+                            key={project._id}
+                            onClick={() => {
+                              setActiveProject(project);
+                              onNavigate('board');
+                              setSearchOpen(false);
+                            }}
+                            className="flex w-full items-center justify-between rounded-md px-2.5 py-2 text-left text-xs text-neutral-200 transition-colors hover:bg-white/[0.06]"
+                          >
+                            <span className="flex items-center gap-2 truncate">
+                              <FolderGit2 className="h-3.5 w-3.5 shrink-0 text-neutral-400" />
+                              <span className="truncate">{project.title}</span>
+                            </span>
+                            <span className="text-[10px] text-neutral-500">{project.key}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    {matchedTasks.length > 0 && (
+                      <div>
+                        <div className="px-2.5 py-1 text-xs font-medium text-neutral-500">Issues</div>
+                        {matchedTasks.slice(0, 5).map((task) => (
+                          <button
+                            key={task._id}
+                            onClick={() => {
+                              onNavigate('board');
+                              setSearchOpen(false);
+                            }}
+                            className="flex w-full items-center justify-between rounded-md px-2.5 py-2 text-left text-xs text-neutral-200 transition-colors hover:bg-white/[0.06]"
+                          >
+                            <span className="flex items-center gap-2 truncate">
+                              <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-neutral-400" />
+                              <span className="truncate">{task.title}</span>
+                            </span>
+                            <span className="text-[10px] capitalize text-neutral-500">
+                              {task.column.replace('_', ' ')}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                )}
+              </Popover>
             </div>
           )}
 
@@ -281,8 +247,9 @@ export const Navbar: React.FC<NavbarProps> = ({
 
           {/* Account Menu (>=44x44px Touch Target) */}
           {isAuthenticated && user ? (
-            <div className="relative">
+            <div className="relative" ref={accountRef}>
               <button
+                ref={accountTriggerRef}
                 onClick={() => setDropdownOpen(!dropdownOpen)}
                 aria-label="Account menu"
                 className="flex min-h-[44px] min-w-[44px] h-11 items-center justify-center gap-2 rounded-xl border border-white/[0.08] bg-[#11151f] px-2.5 text-left hover:border-white/[0.16] transition-colors cursor-pointer"
@@ -299,13 +266,14 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <ChevronDown className="h-3.5 w-3.5 text-neutral-500" />
               </button>
 
-              {dropdownOpen && (
-                <>
-                  <div
-                    className="fixed inset-0 z-10"
-                    onClick={() => setDropdownOpen(false)}
-                  />
-                  <div className="fixed left-3 right-3 top-15 sm:absolute sm:left-auto sm:right-0 sm:top-full sm:mt-2 w-auto sm:w-68 max-w-[calc(100vw-24px)] origin-top-right rounded-lg border border-white/[0.12] bg-[#11151f] p-1.5 z-50 overflow-hidden">
+              <Popover
+                open={dropdownOpen}
+                onClose={() => setDropdownOpen(false)}
+                label="Account menu"
+                containerRef={accountRef}
+                triggerRef={accountTriggerRef}
+                className="fixed left-3 right-3 top-15 max-w-[calc(100vw-24px)] origin-top-right overflow-hidden rounded-lg border border-white/[0.12] bg-[#11151f] p-1.5 sm:absolute sm:left-auto sm:right-0 sm:top-full sm:mt-2 sm:w-68"
+              >
                     <div className="px-2.5 py-2.5 border-b border-white/[0.07]">
                       <div className="text-xs font-semibold text-white">{user.name}</div>
                       <div className="text-[11px] text-neutral-400 truncate">{user.email}</div>
@@ -368,9 +336,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                         <span>Log out</span>
                       </button>
                     </div>
-                  </div>
-                </>
-              )}
+              </Popover>
             </div>
           ) : (
             <div className="flex items-center gap-2">

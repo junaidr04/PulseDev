@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useProjects } from '../context/ProjectContext';
-import { X } from 'lucide-react';
 import { FlowButton } from './ui/FlowButton';
+import Modal from './ui/Modal';
 
 
 interface CreateProjectModalProps {
@@ -47,29 +47,13 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({ isOpen, 
   };
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex min-h-full items-center justify-center overflow-y-auto bg-black/70 p-4"
-      onClick={onClose}
+    <Modal
+      open={isOpen}
+      title="New project"
+      description="Add a project to the workspace."
+      onClose={onClose}
     >
-      <div
-        className="relative my-auto max-h-[calc(100dvh-2rem)] w-full max-w-lg overflow-y-auto rounded-lg border border-white/[0.12] bg-[#11151f] p-6"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between border-b border-white/[0.07] pb-3.5">
-          <div>
-            <h3 className="text-sm font-semibold text-white">New project</h3>
-            <p className="text-xs text-neutral-500 mt-0.5">Add a project to the workspace.</p>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="text-neutral-500 hover:text-white p-1 cursor-pointer"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit} className="mt-4 space-y-4 text-xs">
+        <form onSubmit={handleSubmit} className="space-y-4 text-xs">
           {errorMsg && (
             <div className="rounded-lg border border-rose-500/30 bg-rose-500/10 p-2.5 text-rose-300">
               {errorMsg}
@@ -162,8 +146,7 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({ isOpen, 
             />
           </div>
         </form>
-      </div>
-    </div>
+    </Modal>
   );
 };
 

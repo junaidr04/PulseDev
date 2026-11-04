@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import {
   LayoutGrid,
   Kanban,
@@ -28,6 +29,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const { projects, activeProject, setActiveProject } = useProjects();
   const { user } = useAuth();
   const [collapsed, setCollapsed] = useState(false);
+  const reducedMotion = useReducedMotion();
 
   const tabRefs = useRef<Record<string, HTMLButtonElement | null>>({});
   const projectRefs = useRef<Record<string, HTMLButtonElement | null>>({});
@@ -81,7 +83,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       },
       {
         id: 'impersonate',
-        label: 'User Impersonation',
+        label: 'Users & access',
         icon: UserCheck,
       }
     );
@@ -89,11 +91,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const handleNavItemClick = (id: string) => {
     if (id === 'impersonate') {
-      sessionStorage.setItem('pulsedev_profile_tab', 'directory');
-      window.dispatchEvent(
-        new CustomEvent('pulsedev:profile-tab', { detail: 'directory' })
-      );
-      onNavigate('profile');
+      onNavigate('admin-audit');
       return;
     }
     onNavigate(id);
@@ -116,17 +114,24 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     tabRefs.current[item.id] = el;
                   }}
                   onClick={() => handleNavItemClick(item.id)}
-                  className={`relative flex min-h-[44px] items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs whitespace-nowrap flex-shrink-0 transition-all cursor-pointer ${
+                  className={`relative flex min-h-[44px] items-center gap-1.5 rounded-xl border px-3.5 py-2 text-xs whitespace-nowrap flex-shrink-0 transition-colors cursor-pointer ${
                     isActive
-                      ? 'bg-white/[0.09] text-white font-semibold border border-white/[0.2]'
-                      : 'bg-white/[0.03] text-neutral-300 border border-white/[0.06] hover:text-white'
+                      ? 'border-transparent text-white font-semibold'
+                      : 'border-transparent text-neutral-300 hover:bg-white/[0.03] hover:text-white'
                   }`}
                 >
+                  {isActive && (
+                    <motion.span
+                      layoutId="mobile-nav-active"
+                      transition={{ duration: reducedMotion ? 0 : 0.18, ease: 'easeOut' }}
+                      className="absolute inset-0 rounded-xl border border-white/[0.14] bg-white/[0.06]"
+                    />
+                  )}
                   <Icon
-                    className="h-3.5 w-3.5"
+                    className="relative z-10 h-3.5 w-3.5"
                     style={{ color: isActive ? '#83a897' : undefined }}
                   />
-                  <span>{item.label}</span>
+                  <span className="relative z-10">{item.label}</span>
                 </button>
               );
             })}
@@ -179,11 +184,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
       </div>
 
       {/* Desktop Left Sidebar (md and up) */}
-      <aside
+      <motion.aside
         aria-label="Workspace navigation"
-        className={`hidden md:flex flex-col border-r border-white/[0.07] bg-[#0a0d14] select-none transition-all duration-200 ${
-          collapsed ? 'w-16' : 'w-60'
-        }`}
+        animate={{ width: collapsed ? 64 : 240 }}
+        transition={{ duration: reducedMotion ? 0 : 0.2, ease: 'easeOut' }}
+        className="hidden shrink-0 flex-col select-none border-r border-white/[0.07] bg-[#0a0d14] md:flex"
       >
       {/* Primary Navigation */}
       <div className="px-2.5 pt-4 pb-2">
@@ -198,26 +203,38 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 title={collapsed ? item.label : undefined}
                 className={`group relative flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-[13px] transition-all duration-150 cursor-pointer ${
                   isActive
-                    ? 'bg-white/[0.07] text-white font-medium'
+                    ? 'text-white font-medium'
                     : 'text-neutral-400 hover:bg-white/[0.035] hover:text-neutral-200'
                 }`}
               >
-                {/* Active Indicator Bar */}
                 {isActive && (
-                  <span
-                    className="absolute left-0 top-1.5 bottom-1.5 w-1 rounded-r"
-                    style={{ backgroundColor: '#83a897' }}
+                  <motion.span
+                    layoutId="desktop-nav-active"
+                    transition={{ duration: reducedMotion ? 0 : 0.18, ease: 'easeOut' }}
+                    className="absolute inset-0 rounded-lg border border-white/[0.1] bg-white/[0.05]"
                   />
                 )}
 
                 <div className={`flex items-center gap-2.5 truncate ${collapsed ? 'mx-auto' : ''}`}>
                   <Icon
-                    className={`h-4 w-4 flex-shrink-0 transition-colors ${
+                    className={`relative z-10 h-4 w-4 flex-shrink-0 transition-colors ${
                       isActive ? '' : 'text-neutral-500 group-hover:text-neutral-300'
                     }`}
                     style={{ color: isActive ? '#83a897' : undefined }}
                   />
-                  {!collapsed && <span className="truncate">{item.label}</span>}
+                  <AnimatePresence initial={false}>
+                    {!collapsed && (
+                      <motion.span
+                        initial={reducedMotion ? false : { opacity: 0, x: -4 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: -4 }}
+                        transition={{ duration: reducedMotion ? 0 : 0.15, ease: 'easeOut' }}
+                        className="relative z-10 truncate"
+                      >
+                        {item.label}
+                      </motion.span>
+                    )}
+                  </AnimatePresence>
                 </div>
 
                 {!collapsed && (
@@ -294,7 +311,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           )}
         </button>
       </div>
-    </aside>
+    </motion.aside>
     </>
   );
 };

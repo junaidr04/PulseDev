@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ProjectProvider } from './context/ProjectContext';
 import { useSyncRoleCssVariables } from './theme/roleTheme';
@@ -68,6 +69,7 @@ const AppContent: React.FC = () => {
 
   const isAdmin = isAuthenticated && user?.role === 'admin';
   const isImpersonating = Boolean(user?.impersonatedBy);
+  const reducedMotion = useReducedMotion();
   useSyncRoleCssVariables(user?.role);
 
   useEffect(() => {
@@ -154,38 +156,47 @@ const AppContent: React.FC = () => {
 
         <main className="relative flex flex-1 flex-col overflow-hidden bg-[#090b10]">
           <SafeViewBoundary onReset={() => setCurrentRoute(isAuthenticated ? 'dashboard' : 'login')}>
-            <div className="flex h-full w-full flex-1 flex-col overflow-hidden">
-              {!isAuthenticated ? (
-                currentRoute === 'register' ? (
-                  <Register onNavigate={handleNavigate} />
+            <AnimatePresence mode="wait" initial={false}>
+              <motion.div
+                key={`${isAuthenticated ? 'workspace' : 'auth'}-${currentRoute}`}
+                initial={reducedMotion ? false : { opacity: 0, y: 5 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={reducedMotion ? { opacity: 0 } : { opacity: 0, y: -3 }}
+                transition={{ duration: reducedMotion ? 0 : 0.18, ease: 'easeOut' }}
+                className="flex h-full w-full flex-1 flex-col overflow-hidden"
+              >
+                {!isAuthenticated ? (
+                  currentRoute === 'register' ? (
+                    <Register onNavigate={handleNavigate} />
+                  ) : (
+                    <Login onNavigate={handleNavigate} />
+                  )
                 ) : (
-                  <Login onNavigate={handleNavigate} />
-                )
-              ) : (
-                <>
-                  {(currentRoute === 'dashboard' ||
-                    currentRoute === 'home' ||
-                    currentRoute === 'login' ||
-                    currentRoute === 'register') && (
-                    <Dashboard
-                      onNavigate={handleNavigate}
-                      onOpenNewTask={handleOpenNewTask}
-                      onOpenNewProject={handleOpenNewProject}
-                    />
-                  )}
-                  {currentRoute === 'board' && <SprintBoard onOpenNewTask={handleOpenNewTask} />}
-                  {currentRoute === 'projects' && (
-                    <Projects
-                      onNavigate={handleNavigate}
-                      onOpenNewProject={handleOpenNewProject}
-                    />
-                  )}
-                  {currentRoute === 'ai' && <AiAssistant />}
-                  {currentRoute === 'profile' && <Profile onNavigate={handleNavigate} />}
-                  {currentRoute === 'admin-audit' && isAdmin && <AdminAudit />}
-                </>
-              )}
-            </div>
+                  <>
+                    {(currentRoute === 'dashboard' ||
+                      currentRoute === 'home' ||
+                      currentRoute === 'login' ||
+                      currentRoute === 'register') && (
+                      <Dashboard
+                        onNavigate={handleNavigate}
+                        onOpenNewTask={handleOpenNewTask}
+                        onOpenNewProject={handleOpenNewProject}
+                      />
+                    )}
+                    {currentRoute === 'board' && <SprintBoard onOpenNewTask={handleOpenNewTask} />}
+                    {currentRoute === 'projects' && (
+                      <Projects
+                        onNavigate={handleNavigate}
+                        onOpenNewProject={handleOpenNewProject}
+                      />
+                    )}
+                    {currentRoute === 'ai' && <AiAssistant />}
+                    {currentRoute === 'profile' && <Profile onNavigate={handleNavigate} />}
+                    {currentRoute === 'admin-audit' && isAdmin && <AdminAudit />}
+                  </>
+                )}
+              </motion.div>
+            </AnimatePresence>
           </SafeViewBoundary>
         </main>
       </div>

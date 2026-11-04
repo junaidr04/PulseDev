@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
 import { emitInstantNotification, triggerNotificationRefresh } from '../utils/notificationBus';
 import Avatar from './ui/Avatar';
+import Modal from './ui/Modal';
 import {
   MessageSquare,
   Send,
@@ -261,9 +263,11 @@ export const TeamChatWidget: React.FC = () => {
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const isNearMessagesBottomRef = useRef(true);
   const inputRef = useRef<HTMLInputElement>(null);
+  const chatTriggerRef = useRef<HTMLButtonElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const pdfInputRef = useRef<HTMLInputElement>(null);
   const prevUserEmailRef = useRef<string | undefined>(user?.email);
+  const reducedMotion = useReducedMotion();
 
   const currentUserKey = user?.email || user?._id || 'default';
 
@@ -291,6 +295,19 @@ export const TeamChatWidget: React.FC = () => {
     }
     prevUserEmailRef.current = user?.email;
   }, [user?.email]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setIsOpen(false);
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    inputRef.current?.focus();
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      chatTriggerRef.current?.focus();
+    };
+  }, [isOpen]);
 
   const fetchMessages = async () => {
     try {
@@ -495,53 +512,45 @@ export const TeamChatWidget: React.FC = () => {
 
   return (
     <>
-      {/* Full-Screen Image Lightbox Modal */}
-      {previewImageModal && (
-        <div
-          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 p-4"
-          onClick={() => setPreviewImageModal(null)}
-        >
-          <div
-            className="relative max-w-3xl max-h-[85vh] rounded-lg border border-white/[0.12] bg-[#111317] p-3 overflow-hidden flex flex-col"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between pb-2.5 px-1 border-b border-white/[0.08]">
-              <span className="text-xs font-medium text-white truncate">
-                {previewImageModal.name} ({previewImageModal.size})
-              </span>
-              <div className="flex items-center gap-2">
-                <a
-                  href={previewImageModal.url}
-                  download={previewImageModal.name}
-                  className="flex items-center gap-1 rounded-lg bg-white/[0.08] px-2.5 py-1 text-[11px] text-neutral-200 hover:bg-white/[0.15]"
-                >
-                  <Download className="h-3 w-3" />
-                  <span>Download</span>
-                </a>
-                <button
-                  onClick={() => setPreviewImageModal(null)}
-                  className="text-neutral-400 hover:text-white p-1 cursor-pointer"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
+      <Modal
+        open={Boolean(previewImageModal)}
+        title={previewImageModal?.name || 'Image preview'}
+        onClose={() => setPreviewImageModal(null)}
+        className="max-w-3xl"
+      >
+        {previewImageModal && (
+          <>
+            <div className="mb-2 flex items-center justify-between gap-3">
+              <span className="text-xs text-neutral-400">{previewImageModal.size}</span>
+              <a
+                href={previewImageModal.url}
+                download={previewImageModal.name}
+                className="flex items-center gap-1 rounded-md bg-white/[0.08] px-2.5 py-1 text-[11px] text-neutral-200 hover:bg-white/[0.15]"
+              >
+                <Download className="h-3 w-3" />
+                <span>Download</span>
+              </a>
             </div>
             <img
               src={previewImageModal.url}
               alt={previewImageModal.name}
-              className="mt-2 max-h-[74vh] w-auto object-contain rounded-lg mx-auto"
+              className="mx-auto max-h-[74vh] w-auto rounded-lg object-contain"
             />
-          </div>
-        </div>
-      )}
+          </>
+        )}
+      </Modal>
 
       <div className="fixed bottom-5 right-5 z-50">
         {/* Minimized Trigger Button (Floating Glass Layer with >=44x44px Touch Target) */}
-        {!isOpen && (
-          <button
+        <button
+            ref={chatTriggerRef}
             onClick={() => setIsOpen(true)}
             aria-label="Open Team Chat"
-            className="group flex min-h-[48px] min-w-[48px] items-center justify-center gap-2.5 rounded-lg border border-white/[0.12] bg-[#121621] p-2.5 text-xs font-medium text-neutral-100 hover:border-white/[0.2] hover:bg-[#171c29] transition-colors cursor-pointer"
+            aria-hidden={isOpen}
+            tabIndex={isOpen ? -1 : 0}
+            className={`group flex min-h-[48px] min-w-[48px] items-center justify-center gap-2.5 rounded-lg border border-white/[0.12] bg-[#121621] p-2.5 text-xs font-medium text-neutral-100 transition-colors hover:border-white/[0.2] hover:bg-[#171c29] cursor-pointer ${
+              isOpen ? 'invisible pointer-events-none' : ''
+            }`}
           >
             <div className="relative flex h-7 w-7 items-center justify-center rounded-md bg-emerald-700 text-white">
               <MessageSquare className="h-3.5 w-3.5" />
@@ -553,12 +562,16 @@ export const TeamChatWidget: React.FC = () => {
             </div>
             <span className="hidden sm:inline font-semibold tracking-tight">Team chat</span>
           </button>
-        )}
 
         {/* Open Chat Window */}
+        <AnimatePresence>
         {isOpen && (
-          <div
-            className={`relative flex flex-col rounded-lg border border-white/[0.12] bg-[#111317] overflow-hidden transition-colors duration-200 ${
+          <motion.div
+            initial={reducedMotion ? false : { opacity: 0, y: 8, scale: 0.985 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={reducedMotion ? { opacity: 0 } : { opacity: 0, y: 5, scale: 0.99 }}
+            transition={{ duration: reducedMotion ? 0 : 0.18, ease: 'easeOut' }}
+            className={`relative flex flex-col rounded-lg border border-white/[0.12] bg-[#111317] overflow-hidden ${
               isExpanded
                 ? 'w-[94vw] sm:w-[540px] h-[640px]'
                 : 'w-[92vw] sm:w-[420px] h-[540px]'
@@ -608,6 +621,7 @@ export const TeamChatWidget: React.FC = () => {
               }}
               className="flex-1 overflow-y-auto p-4 space-y-4"
             >
+              <AnimatePresence initial={false}>
               {messages.map((msg) => {
                   const senderName = msg.userName || msg.senderName || 'Alex Chen';
                   const senderRole = msg.userRole || msg.senderRole || 'developer';
@@ -620,9 +634,14 @@ export const TeamChatWidget: React.FC = () => {
                 const validTime = isNaN(rawTime.getTime()) ? new Date() : rawTime;
 
                 return (
-                  <div
+                  <motion.div
                     key={msg._id}
                     id={`chat-message-${msg._id}`}
+                    layout
+                    initial={reducedMotion ? false : { opacity: 0, y: 4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={reducedMotion ? { opacity: 0 } : { opacity: 0, y: -3 }}
+                    transition={{ duration: reducedMotion ? 0 : 0.16, ease: 'easeOut' }}
                     className={`flex items-start gap-3 ${isMe ? 'flex-row-reverse' : ''}`}
                   >
                     {/* Sender Profile Picture */}
@@ -754,9 +773,10 @@ export const TeamChatWidget: React.FC = () => {
                         </button>
                       )}
                     </div>
-                  </div>
+                  </motion.div>
                 );
               })}
+              </AnimatePresence>
             </div>
 
             {/* Interactive @Mention Popover Menu */}
@@ -948,8 +968,9 @@ export const TeamChatWidget: React.FC = () => {
                 <Send className="h-3.5 w-3.5" />
               </button>
             </form>
-          </div>
+          </motion.div>
         )}
+        </AnimatePresence>
       </div>
     </>
   );

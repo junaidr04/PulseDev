@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import Avatar from '../components/ui/Avatar';
+import Modal from '../components/ui/Modal';
 import api from '../services/api';
 import {
   RefreshCw,
@@ -55,6 +56,7 @@ export const AdminAudit: React.FC = () => {
   const [filterType, setFilterType] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [statusBanner, setStatusBanner] = useState<string | null>(null);
+  const [statusIsError, setStatusIsError] = useState(false);
 
   // Explicit Confirmation Modal state for Admin Impersonation
   const [impersonateTarget, setImpersonateTarget] = useState<any | null>(null);
@@ -66,26 +68,40 @@ export const AdminAudit: React.FC = () => {
   const isAdmin = user?.role === 'admin';
 
   const fetchAdminData = async () => {
-    try {
-      setLoading(true);
-      const [logsRes, usersRes] = await Promise.all([
-        api.auth.getAuditLogs(),
-        api.auth.getUsers(),
-      ]);
-      if (logsRes.success && Array.isArray(logsRes.logs)) setLogs(logsRes.logs);
-      else setStatusBanner('Could not load audit events.');
-      if (usersRes.success && Array.isArray(usersRes.users)) {
-        setTeamUsers(usersRes.users);
-      } else {
-        setStatusBanner('Could not load team members.');
-      }
-    } catch (error) {
-      setStatusBanner(
-        error instanceof Error ? error.message : 'Could not load audit data.'
-      );
-    } finally {
-      setLoading(false);
+    setLoading(true);
+    const [logsResult, usersResult] = await Promise.allSettled([
+      api.auth.getAuditLogs(),
+      api.auth.getUsers(),
+    ]);
+    const errors: string[] = [];
+
+    if (
+      logsResult.status === 'fulfilled' &&
+      logsResult.value.success &&
+      Array.isArray(logsResult.value.logs)
+    ) {
+      setLogs(logsResult.value.logs);
+    } else {
+      const error =
+        logsResult.status === 'rejected' ? logsResult.reason : logsResult.value.message;
+      errors.push(error instanceof Error ? error.message : 'Could not load audit events.');
     }
+
+    if (
+      usersResult.status === 'fulfilled' &&
+      usersResult.value.success &&
+      Array.isArray(usersResult.value.users)
+    ) {
+      setTeamUsers(usersResult.value.users);
+    } else {
+      const error =
+        usersResult.status === 'rejected' ? usersResult.reason : usersResult.value.message;
+      errors.push(error instanceof Error ? error.message : 'Could not load team members.');
+    }
+
+    setStatusIsError(errors.length > 0);
+    setStatusBanner(errors.length > 0 ? errors.join(' ') : null);
+    setLoading(false);
   };
 
   useEffect(() => {
@@ -97,11 +113,12 @@ export const AdminAudit: React.FC = () => {
   const handleRoleChange = async (targetUserId: string, newRole: string) => {
     try {
       const res = await api.auth.updateUserRole(targetUserId, newRole);
-      if (res.success) {
-        setStatusBanner(res.message || 'User role updated.');
-        fetchAdminData();
-      }
+      if (!res.success) throw new Error(res.message || 'Failed to update role.');
+      setStatusIsError(false);
+      setStatusBanner(res.message || 'User role updated.');
+      await fetchAdminData();
     } catch (err: any) {
+      setStatusIsError(true);
       setStatusBanner(err.message || 'Failed to update role.');
     }
   };
@@ -114,6 +131,7 @@ export const AdminAudit: React.FC = () => {
       await startImpersonation(impersonateTarget._id, impersonateReason.trim());
       setImpersonateTarget(null);
     } catch (err: any) {
+      setStatusIsError(true);
       setStatusBanner(err.message || 'Failed to start impersonation.');
     } finally {
       setImpersonateSubmitting(false);
@@ -180,12 +198,28 @@ export const AdminAudit: React.FC = () => {
         </div>
 
         {statusBanner && (
-          <div className="flex items-center justify-between rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-2.5 text-xs text-emerald-300">
+          <div
+            role={statusIsError ? 'alert' : 'status'}
+            className={`flex items-center justify-between rounded-lg border px-4 py-2.5 text-xs ${
+              statusIsError
+                ? 'border-rose-500/30 bg-rose-500/[0.08] text-rose-200'
+                : 'border-white/[0.12] bg-white/[0.04] text-neutral-200'
+            }`}
+          >
             <div className="flex items-center gap-2">
-              <CheckCircle2 className="h-4 w-4" />
+              {statusIsError ? (
+                <ShieldAlert className="h-4 w-4" />
+              ) : (
+                <CheckCircle2 className="h-4 w-4" />
+              )}
               <span>{statusBanner}</span>
             </div>
-            <button onClick={() => setStatusBanner(null)} className="text-emerald-300 hover:text-white">
+            <button
+              type="button"
+              onClick={() => setStatusBanner(null)}
+              className="text-neutral-400 hover:text-white"
+              aria-label="Dismiss message"
+            >
               <X className="h-3.5 w-3.5" />
             </button>
           </div>
@@ -383,56 +417,40 @@ export const AdminAudit: React.FC = () => {
         </div>
       </div>
 
-      {/* Explicit Confirmation Modal for Admin Impersonation */}
-      {impersonateTarget && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4"
-          onClick={() => setImpersonateTarget(null)}
-        >
-          <div
-            className="relative w-full max-w-md rounded-lg border border-white/[0.12] bg-[#11151f] p-6"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between border-b border-white/[0.07] pb-3.5">
-              <div className="flex items-center gap-2">
-                <ShieldAlert className="h-4 w-4 text-amber-400" />
-                <h3 className="text-sm font-semibold text-white">Confirm Admin Impersonation</h3>
-              </div>
-              <button
-                onClick={() => setImpersonateTarget(null)}
-                className="text-neutral-400 hover:text-white cursor-pointer"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-
-            <form onSubmit={handleConfirmImpersonation} className="mt-4 space-y-4 text-xs">
+      <Modal
+        open={Boolean(impersonateTarget)}
+        title="Confirm user impersonation"
+        description="This action is recorded in the security audit log."
+        onClose={() => setImpersonateTarget(null)}
+        className="max-w-md"
+      >
+        {impersonateTarget && (
+          <form onSubmit={handleConfirmImpersonation} className="space-y-4 text-xs">
               <div className="rounded-xl border border-white/[0.08] bg-[#0b0d13] p-3 flex items-center gap-3">
                 <Avatar name={impersonateTarget.name} className="h-10 w-10 text-sm" />
                 <div>
                   <div className="font-semibold text-white">{impersonateTarget.name}</div>
                   <div className="text-neutral-400">{impersonateTarget.email}</div>
-                  <div className="font-mono text-[10px] text-amber-400 uppercase mt-0.5">
-                    Target Role: {impersonateTarget.role}
+                  <div className="mt-0.5 text-neutral-400">
+                    Role: <span className="text-neutral-200">{impersonateTarget.role}</span>
                   </div>
                 </div>
               </div>
 
               <p className="text-neutral-300 leading-relaxed">
-                You are about to start a temporary, audited impersonation session as{' '}
-                <strong className="text-white">{impersonateTarget.name}</strong>. This action will be recorded in the security audit log with your administrator identity and timestamp.
+                You will temporarily use {impersonateTarget.name}&apos;s account to check their view.
               </p>
 
               <div>
-                <label className="block font-medium text-neutral-300 mb-1.5">
-                  Audit Reason / Support Ticket
+                <label className="mb-1.5 block font-medium text-neutral-300">
+                  Reason
                 </label>
                 <input
                   type="text"
                   required
                   value={impersonateReason}
                   onChange={(e) => setImpersonateReason(e.target.value)}
-                  className="w-full rounded-lg border border-white/[0.1] bg-[#0b0d13] px-3 py-2 text-white focus:border-amber-400/50 focus:outline-none"
+                  className="w-full rounded-lg border border-white/[0.1] bg-[#0b0d13] px-3 py-2 text-white focus:border-white/[0.2] focus:outline-none"
                 />
               </div>
 
@@ -447,15 +465,14 @@ export const AdminAudit: React.FC = () => {
                 <button
                   type="submit"
                   disabled={impersonateSubmitting}
-                  className="rounded-lg bg-amber-400 px-4 py-2 text-xs font-semibold text-[#090b10] hover:bg-amber-300 cursor-pointer"
+                  className="rounded-md bg-white px-4 py-2 text-xs font-medium text-[#090b10] hover:bg-neutral-200 disabled:opacity-50 cursor-pointer"
                 >
-                  {impersonateSubmitting ? 'Starting...' : `Impersonate ${impersonateTarget.name}`}
+                  {impersonateSubmitting ? 'Starting...' : 'Start session'}
                 </button>
               </div>
-            </form>
-          </div>
-        </div>
-      )}
+          </form>
+        )}
+      </Modal>
     </div>
   );
 };

@@ -1,8 +1,18 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import {
+  AnimatePresence,
+  animate,
+  motion,
+  useMotionValue,
+  useReducedMotion,
+  useTransform,
+} from 'motion/react';
 import { ArrowRight, Check, X } from 'lucide-react';
 import { Project, Task } from '../../context/ProjectContext';
 import { User } from '../../context/AuthContext';
 import { resolveRoleKey } from '../../theme/roleTheme';
+import Modal from '../ui/Modal';
+import Toast from '../feedback/Toast';
 
 interface RoleDashboardProps {
   user: User | null;
@@ -51,6 +61,23 @@ const statusLabels: Record<Task['column'], string> = {
   completed: 'Done',
 };
 
+const AnimatedCount: React.FC<{ value: number }> = ({ value }) => {
+  const count = useMotionValue(0);
+  const rounded = useTransform(count, (latest) => Math.round(latest));
+  const reducedMotion = useReducedMotion();
+
+  useEffect(() => {
+    if (reducedMotion) {
+      count.set(value);
+      return;
+    }
+    const controls = animate(count, value, { duration: 0.28, ease: 'easeOut' });
+    return () => controls.stop();
+  }, [count, reducedMotion, value]);
+
+  return <motion.span>{rounded}</motion.span>;
+};
+
 export const RoleDashboard: React.FC<RoleDashboardProps> = ({
   user,
   projects,
@@ -65,9 +92,11 @@ export const RoleDashboard: React.FC<RoleDashboardProps> = ({
 }) => {
   const role = resolveRoleKey(user?.role);
   const copy = roleCopy[role];
-  const [rejectingTaskId, setRejectingTaskId] = useState<string | null>(null);
+  const [rejectingTask, setRejectingTask] = useState<Task | null>(null);
+  const [qaOverrideTask, setQaOverrideTask] = useState<Task | null>(null);
   const [rejectReason, setRejectReason] = useState('');
   const [notice, setNotice] = useState('');
+  const reducedMotion = useReducedMotion();
 
   const visibleTasks =
     role === 'developer'
@@ -101,11 +130,16 @@ export const RoleDashboard: React.FC<RoleDashboardProps> = ({
   };
 
   const handleShipOverride = (task: Task) => {
-    if (!window.confirm('This issue has no QA pass. Ship anyway?')) return;
-    void runAction(
-      () => updateTaskColumn(task._id, 'completed', true),
+    setQaOverrideTask(task);
+  };
+
+  const confirmShipOverride = async () => {
+    if (!qaOverrideTask) return;
+    const succeeded = await runAction(
+      () => updateTaskColumn(qaOverrideTask._id, 'completed', true),
       'Issue shipped with an admin override.'
     );
+    if (succeeded) setQaOverrideTask(null);
   };
 
   const handleReject = async (task: Task) => {
@@ -118,7 +152,7 @@ export const RoleDashboard: React.FC<RoleDashboardProps> = ({
       'Issue returned to its owner.'
     );
     if (succeeded) {
-      setRejectingTaskId(null);
+      setRejectingTask(null);
       setRejectReason('');
     }
   };
@@ -131,7 +165,13 @@ export const RoleDashboard: React.FC<RoleDashboardProps> = ({
         : 'No issues in this project yet.';
 
   return (
-    <section className="space-y-5">
+    <>
+    <motion.section
+      initial={reducedMotion ? false : { opacity: 0, y: 5 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: reducedMotion ? 0 : 0.18, ease: 'easeOut' }}
+      className="space-y-5"
+    >
       <div className="flex flex-col gap-4 rounded-lg border border-white/[0.08] bg-[#101318] p-5 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h2 className="text-lg font-semibold text-white">{copy.title}</h2>
@@ -184,11 +224,19 @@ export const RoleDashboard: React.FC<RoleDashboardProps> = ({
       </div>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {(Object.keys(statusLabels) as Task['column'][]).map((column) => (
-          <div key={column} className="rounded-lg border border-white/[0.08] bg-[#101318] p-4">
+        {(Object.keys(statusLabels) as Task['column'][]).map((column, index) => (
+          <motion.div
+            key={column}
+            initial={reducedMotion ? false : { opacity: 0, y: 4 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: reducedMotion ? 0 : 0.18, delay: reducedMotion ? 0 : index * 0.06, ease: 'easeOut' }}
+            className="rounded-lg border border-white/[0.08] bg-[#101318] p-4"
+          >
             <p className="text-sm text-neutral-400">{statusLabels[column]}</p>
-            <p className="mt-1 text-xl font-semibold text-white">{counts[column]}</p>
-          </div>
+            <p className="mt-1 text-xl font-semibold text-white">
+              <AnimatedCount value={counts[column]} />
+            </p>
+          </motion.div>
         ))}
       </div>
 
@@ -212,24 +260,6 @@ export const RoleDashboard: React.FC<RoleDashboardProps> = ({
                     <span>{task.priority} priority</span>
                     {task.assignee?.name && <span>Assigned to {task.assignee.name}</span>}
                   </div>
-                  {role === 'qa' && rejectingTaskId === task._id && (
-                    <div className="mt-3 flex max-w-xl flex-col gap-2 sm:flex-row">
-                      <input
-                        value={rejectReason}
-                        onChange={(event) => setRejectReason(event.target.value)}
-                        placeholder="Why should this issue go back?"
-                        aria-label="Rejection reason"
-                        className="min-w-0 flex-1 rounded-md border border-white/[0.12] bg-[#0b0d12] px-3 py-2 text-sm text-white placeholder:text-neutral-600 focus:border-emerald-700 focus:outline-none"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => void handleReject(task)}
-                        className="rounded-md border border-white/[0.12] px-3 py-2 text-sm text-neutral-200 hover:bg-white/[0.05]"
-                      >
-                        Send back
-                      </button>
-                    </div>
-                  )}
                 </div>
 
                 <div className="flex flex-shrink-0 flex-wrap gap-2">
@@ -290,7 +320,7 @@ export const RoleDashboard: React.FC<RoleDashboardProps> = ({
                       <button
                         type="button"
                         onClick={() => {
-                          setRejectingTaskId(task._id);
+                          setRejectingTask(task);
                           setRejectReason('');
                           setNotice('');
                         }}
@@ -326,12 +356,82 @@ export const RoleDashboard: React.FC<RoleDashboardProps> = ({
           Create the first project
         </button>
       )}
-      {notice && (
-        <p role="status" aria-live="polite" className="text-sm text-neutral-300">
-          {notice}
-        </p>
-      )}
-    </section>
+    </motion.section>
+    <Modal
+      open={Boolean(rejectingTask)}
+      title="Reject issue"
+      description={rejectingTask?.title}
+      onClose={() => setRejectingTask(null)}
+      className="max-w-md"
+    >
+      <form
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (rejectingTask) void handleReject(rejectingTask);
+        }}
+        className="space-y-4"
+      >
+        <label className="block space-y-1.5">
+          <span className="text-sm text-neutral-300">Reason</span>
+          <textarea
+            autoFocus
+            required
+            value={rejectReason}
+            onChange={(event) => setRejectReason(event.target.value)}
+            placeholder="Describe what needs to be fixed."
+            rows={4}
+            className="w-full resize-y rounded-md border border-white/[0.12] bg-[#0b0d12] px-3 py-2 text-sm text-white placeholder:text-neutral-600 focus:border-white/[0.22] focus:outline-none"
+          />
+        </label>
+        <div className="flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={() => setRejectingTask(null)}
+            className="rounded-md border border-white/[0.12] px-3 py-2 text-sm text-neutral-300 hover:bg-white/[0.05]"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            disabled={!rejectReason.trim()}
+            className="rounded-md bg-white px-3 py-2 text-sm font-medium text-[#090b10] hover:bg-neutral-200 disabled:opacity-50"
+          >
+            Send back
+          </button>
+        </div>
+      </form>
+    </Modal>
+    <Modal
+      open={Boolean(qaOverrideTask)}
+      title="Ship without a QA pass?"
+      description="This issue has no QA pass. Ship anyway?"
+      onClose={() => setQaOverrideTask(null)}
+      className="max-w-md"
+    >
+      <div className="flex justify-end gap-2">
+        <button
+          type="button"
+          onClick={() => setQaOverrideTask(null)}
+          className="rounded-md border border-white/[0.12] px-3 py-2 text-sm text-neutral-300 hover:bg-white/[0.05]"
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          onClick={() => void confirmShipOverride()}
+          className="rounded-md bg-white px-3 py-2 text-sm font-medium text-[#090b10] hover:bg-neutral-200"
+        >
+          Ship anyway
+        </button>
+      </div>
+    </Modal>
+    <Toast
+      open={Boolean(notice)}
+      message={notice}
+      onClose={() => setNotice('')}
+      placement="bottom-right"
+    />
+    </>
   );
 };
 

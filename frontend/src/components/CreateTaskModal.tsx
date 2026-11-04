@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useProjects } from '../context/ProjectContext';
 import { useAuth } from '../context/AuthContext';
-import { X, Lock } from 'lucide-react';
+import { Lock } from 'lucide-react';
 import { FlowButton } from './ui/FlowButton';
+import Modal from './ui/Modal';
 
 
 interface CreateTaskModalProps {
@@ -63,31 +64,18 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({ isOpen, onClos
   const [tags, setTags] = useState('');
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [showQaOverrideConfirm, setShowQaOverrideConfirm] = useState(false);
 
   useEffect(() => {
     if (user?._id) {
       setAssigneeId(user._id);
     }
+    if (!isOpen) setShowQaOverrideConfirm(false);
   }, [user?._id, isOpen]);
 
-  if (!isOpen) return null;
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!title.trim()) return;
-
+  const createIssue = async (overrideQa = false) => {
     setLoading(true);
     setErrorMsg(null);
-
-    if (
-      canChooseInitialStatus &&
-      column === 'completed' &&
-      !window.confirm('This issue has no QA pass. Ship anyway?')
-    ) {
-      setLoading(false);
-      return;
-    }
-
     const selectedMember = canAssignToTeam
       ? ASSIGNEE_OPTIONS.find((m) => m.id === assigneeId || m.name === user?.name) || ASSIGNEE_OPTIONS[0]
       : {
@@ -104,7 +92,7 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({ isOpen, onClos
         title: title.trim(),
         description: description.trim(),
         column: canChooseInitialStatus ? column : 'backlog',
-        ...(canChooseInitialStatus && column === 'completed' ? { overrideQa: true } : {}),
+        ...(overrideQa ? { overrideQa: true } : {}),
         priority,
         assigneeId: selectedMember.id,
         assignee: {
@@ -126,6 +114,16 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({ isOpen, onClos
     }
   };
 
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!title.trim()) return;
+    if (canChooseInitialStatus && column === 'completed') {
+      setShowQaOverrideConfirm(true);
+      return;
+    }
+    void createIssue();
+  };
+
   const handleAiAutofill = () => {
     setTitle('Add password reset endpoint');
     setDescription('Send a reset link and reject expired reset tokens.');
@@ -135,24 +133,20 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({ isOpen, onClos
   };
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex min-h-full items-center justify-center overflow-y-auto bg-black/70 p-4"
-      onClick={onClose}
-    >
-      <div
-        className="relative my-auto max-h-[calc(100dvh-2rem)] w-full max-w-lg overflow-y-auto rounded-lg border border-white/[0.12] bg-[#11151f] p-6"
-        onClick={(e) => e.stopPropagation()}
+    <>
+      <Modal
+        open={isOpen}
+        title="New issue"
+        description={
+          canAssignToTeam
+            ? 'Add work to the backlog or assign it to a teammate.'
+            : 'The issue will be assigned to you.'
+        }
+        onClose={onClose}
       >
-        <div className="flex items-center justify-between border-b border-white/[0.07] pb-3.5">
-          <div>
-            <h3 className="text-sm font-semibold text-white">New issue</h3>
-            <p className="text-xs text-neutral-500 mt-0.5">
-              {canAssignToTeam
-                ? 'Add work to the backlog or assign it to a teammate.'
-                : 'The issue will be assigned to you.'}
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
+        {isOpen && (
+          <>
+            <div className="mb-4 flex justify-end">
             <button
               type="button"
               onClick={handleAiAutofill}
@@ -160,17 +154,8 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({ isOpen, onClos
             >
               <span>Use example</span>
             </button>
-            <button
-              type="button"
-              onClick={onClose}
-              className="text-neutral-500 hover:text-white p-1 cursor-pointer"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-        </div>
-
-        <form onSubmit={handleSubmit} className="mt-4 space-y-4 text-xs">
+            </div>
+        <form onSubmit={handleSubmit} className="space-y-4 text-xs">
           {errorMsg && (
             <div className="rounded-lg border border-rose-500/30 bg-rose-500/10 p-2.5 text-rose-300">
               {errorMsg}
@@ -301,8 +286,38 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({ isOpen, onClos
             />
           </div>
         </form>
-      </div>
-    </div>
+          </>
+        )}
+      </Modal>
+      <Modal
+        open={isOpen && showQaOverrideConfirm}
+        title="Confirm QA override"
+        description="This issue has no QA pass. Ship anyway?"
+        onClose={() => setShowQaOverrideConfirm(false)}
+        className="max-w-md"
+      >
+        <div className="flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={() => setShowQaOverrideConfirm(false)}
+            className="rounded-md border border-white/[0.12] px-3 py-2 text-xs text-neutral-300 hover:bg-white/[0.05]"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            disabled={loading}
+            onClick={() => {
+              setShowQaOverrideConfirm(false);
+              void createIssue(true);
+            }}
+            className="rounded-md bg-white px-3 py-2 text-xs font-medium text-[#090b10] hover:bg-neutral-200 disabled:opacity-50"
+          >
+            {loading ? 'Creating...' : 'Create and ship'}
+          </button>
+        </div>
+      </Modal>
+    </>
   );
 };
 

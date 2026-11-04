@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
 import { PulseBrandLogo } from '../components/Navbar';
 import Avatar from '../components/ui/Avatar';
+import Modal from '../components/ui/Modal';
 import {
   Lock,
   Mail,
@@ -11,7 +12,6 @@ import {
   Eye,
   EyeOff,
   CheckCircle2,
-  X,
 } from 'lucide-react';
 
 interface LoginProps {
@@ -274,7 +274,7 @@ export const Login: React.FC<LoginProps> = ({ onNavigate }) => {
           <button
             type="submit"
             disabled={loading}
-            className="w-full flex items-center justify-center gap-2 rounded-xl bg-emerald-500 py-2.5 font-bold text-slate-950 hover:bg-emerald-400 transition-colors shadow-md shadow-emerald-500/20 disabled:opacity-50 cursor-pointer"
+            className="w-full flex items-center justify-center gap-2 rounded-xl bg-emerald-700 py-2.5 font-medium text-white transition-colors hover:bg-emerald-600 active:scale-[0.99] disabled:opacity-50 cursor-pointer"
           >
             <span>{loading ? 'Signing in...' : 'Sign in'}</span>
             <ArrowRight className="h-4 w-4" />
@@ -303,46 +303,27 @@ export const Login: React.FC<LoginProps> = ({ onNavigate }) => {
       </div>
 
       {/* Password recovery notice */}
-      {isForgotOpen && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/75 p-4"
-          onClick={() => setIsForgotOpen(false)}
-        >
-          <div
-            className="relative my-auto w-full max-w-md rounded-lg border border-white/[0.12] bg-[#11151f] p-6 space-y-4 text-xs"
-            onClick={(e) => e.stopPropagation()}
+      <Modal
+        open={isForgotOpen}
+        title="Password recovery"
+        description="We can’t verify account ownership by email alone."
+        onClose={() => setIsForgotOpen(false)}
+        className="space-y-4 text-xs"
+      >
+        <p className="leading-relaxed text-slate-300">
+          Contact a workspace admin to regain access. If you’re signed in, change your password from
+          Profile settings.
+        </p>
+        <div className="flex justify-end border-t border-white/[0.08] pt-3">
+          <button
+            type="button"
+            onClick={() => setIsForgotOpen(false)}
+            className="rounded-md bg-emerald-700 px-4 py-2 font-medium text-white transition-colors hover:bg-emerald-600"
           >
-
-            <div className="flex items-center justify-between border-b border-white/[0.08] pb-3">
-              <div>
-                <h3 className="text-sm font-bold text-white">Password recovery</h3>
-                <p className="text-[11px] text-slate-400">We can’t verify account ownership by email alone.</p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsForgotOpen(false)}
-                className="text-slate-400 hover:text-white p-1 cursor-pointer"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-
-            <p className="leading-relaxed text-slate-300">
-              Contact a workspace admin to regain access. If you’re signed in, change your password from
-              Profile settings.
-            </p>
-            <div className="flex justify-end border-t border-white/[0.08] pt-3">
-              <button
-                type="button"
-                onClick={() => setIsForgotOpen(false)}
-                className="rounded-xl bg-emerald-500 px-4 py-2 font-bold text-slate-950 hover:bg-emerald-400 cursor-pointer"
-              >
-                Close
-              </button>
-            </div>
-          </div>
+            Close
+          </button>
         </div>
-      )}
+      </Modal>
     </div>
   );
 };
