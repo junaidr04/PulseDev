@@ -348,14 +348,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       {/* Footer Collapse Toggle (WCAG AA High Contrast) */}
       <div className="border-t border-white/[0.08] p-2.5 flex items-center justify-between">
-        {!collapsed && (
-          <div className="flex items-center gap-2 px-1">
-            <span className="h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_6px_#10b981]" />
-            <span className="text-xs font-medium text-neutral-200 truncate">
-              Cycle 44 · Active
-            </span>
-          </div>
-        )}
         <button
           onClick={() => setCollapsed(!collapsed)}
           className={`flex h-7 w-7 items-center justify-center rounded-lg text-neutral-400 hover:bg-white/[0.06] hover:text-white transition-colors cursor-pointer ${
