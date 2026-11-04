@@ -10,26 +10,14 @@ import {
   getPermissionsForRole,
 } from '../middleware/authMiddleware.js';
 
-export interface ImpersonationClaim {
-  id: string;
-  name: string;
-  email: string;
-  role: string;
-}
-
 // Generate JWT Helper
 export const generateToken = (
   id: string,
   email: string,
   role: string,
-  impersonatedBy?: ImpersonationClaim | null,
   expiresIn: string = '7d'
 ): string => {
-  const payload: Record<string, any> = { id, email, role };
-  if (impersonatedBy) {
-    payload.impersonatedBy = impersonatedBy;
-  }
-  return jwt.sign(payload, JWT_SECRET, {
+  return jwt.sign({ id, email, role }, JWT_SECRET, {
     expiresIn: expiresIn as any,
     issuer: 'pulsedev-mern-auth-authority',
   });
@@ -204,7 +192,6 @@ export const loginUser = async (req: Request, res: Response) => {
       user: {
         ...userSafe,
         permissions: getPermissionsForRole(userSafe.role),
-        impersonatedBy: null,
       },
     });
   } catch (error: any) {
@@ -380,7 +367,6 @@ export const getUserProfile = async (req: AuthRequest, res: Response) => {
     user: {
       ...req.user,
       permissions: getPermissionsForRole(req.user.role),
-      impersonatedBy: req.impersonatedBy || null,
     },
   });
 };
@@ -688,139 +674,6 @@ export const deleteUser = async (req: AuthRequest, res: Response) => {
     });
   } catch (error: any) {
     sendServerError(res, error, 'User delete');
-  }
-};
-
-/**
- * @desc    Admin-only: Start temporary, audited user impersonation session
- * @route   POST /api/users/:id/impersonate
- * @access  Private (Admin / users.impersonate)
- */
-export const impersonateUser = async (req: AuthRequest, res: Response) => {
-  try {
-    const targetUserId = req.params.id;
-    const { confirmed, reason = 'Administrative support & permission verification' } = req.body;
-
-    if (!confirmed) {
-      return res.status(400).json({
-        success: false,
-        message: 'Explicit confirmation (confirmed: true) is required before starting impersonation.',
-      });
-    }
-
-    if (targetUserId === req.user._id) {
-      return res.status(400).json({
-        success: false,
-        message: 'Cannot impersonate your own account.',
-      });
-    }
-
-    const targetUser = await db.users.findById(targetUserId);
-    if (!targetUser) {
-      return res.status(404).json({
-        success: false,
-        message: 'Target user to impersonate was not found.',
-      });
-    }
-
-    const impersonatedBy: ImpersonationClaim = {
-      id: req.user._id,
-      name: req.user.name,
-      email: req.user.email,
-      role: req.user.role,
-    };
-
-    // Issue temporary 30-minute impersonation token
-    const impersonationToken = generateToken(
-      targetUser._id,
-      targetUser.email,
-      targetUser.role,
-      impersonatedBy,
-      '30m'
-    );
-    setSessionCookie(res, impersonationToken, 30 * 60 * 1000);
-
-    await db.auditLogs.create({
-      action: 'ADMIN_IMPERSONATE_START',
-      entityType: 'Auth',
-      entityId: targetUser._id,
-      performedBy: req.user._id,
-      performedByName: req.user.name,
-      details: `Admin ${req.user.name} (${req.user.email}) started impersonating ${targetUser.name} (${targetUser.email}). Reason: ${reason}`,
-      ipAddress: req.ip || '127.0.0.1',
-    });
-
-    const { password: _, ...safeTarget } = targetUser;
-
-    res.json({
-      success: true,
-      message: `Now viewing application as ${safeTarget.name} (Temporary Admin Impersonation).`,
-      token: impersonationToken,
-      user: {
-        ...safeTarget,
-        permissions: getPermissionsForRole(safeTarget.role),
-        impersonatedBy,
-      },
-    });
-  } catch (error: any) {
-    sendServerError(res, error, 'User impersonation');
-  }
-};
-
-/**
- * @desc    Exit active admin impersonation session and restore original admin account
- * @route   POST /api/users/exit-impersonation
- * @access  Private
- */
-export const exitImpersonation = async (req: AuthRequest, res: Response) => {
-  try {
-    const impersonator = req.impersonatedBy || req.user?.impersonatedBy;
-    if (!impersonator || !impersonator.id) {
-      return res.status(400).json({
-        success: false,
-        message: 'No active impersonation session found on current token.',
-      });
-    }
-
-    const adminUser = await db.users.findById(impersonator.id);
-    if (!adminUser || adminUser.role !== 'admin') {
-      return res.status(403).json({
-        success: false,
-        message: 'Original administrator account could not be verified.',
-      });
-    }
-
-    if (req.token) {
-      revokedTokens.add(req.token);
-    }
-
-    const restoredToken = generateToken(adminUser._id, adminUser.email, adminUser.role);
-    setSessionCookie(res, restoredToken);
-
-    await db.auditLogs.create({
-      action: 'ADMIN_IMPERSONATE_END',
-      entityType: 'Auth',
-      entityId: req.user._id,
-      performedBy: adminUser._id,
-      performedByName: adminUser.name,
-      details: `Admin ${adminUser.name} exited impersonation of ${req.user.name}`,
-      ipAddress: req.ip || '127.0.0.1',
-    });
-
-    const { password: _, ...safeAdmin } = adminUser;
-
-    res.json({
-      success: true,
-      message: `Exited impersonation. Restored session as ${safeAdmin.name}.`,
-      token: restoredToken,
-      user: {
-        ...safeAdmin,
-        permissions: getPermissionsForRole(safeAdmin.role),
-        impersonatedBy: null,
-      },
-    });
-  } catch (error: any) {
-    sendServerError(res, error, 'Impersonation exit');
   }
 };
 

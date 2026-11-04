@@ -2,13 +2,6 @@ import React, { createContext, useContext, useState, useEffect, useRef } from 'r
 import api from '../services/api';
 import { emitInstantNotification, triggerNotificationRefresh } from '../utils/notificationBus';
 
-export interface ImpersonatorInfo {
-  id: string;
-  name: string;
-  email: string;
-  role: string;
-}
-
 export interface User {
   _id: string;
   name: string;
@@ -19,7 +12,6 @@ export interface User {
   department: string;
   status: 'online' | 'away' | 'busy' | 'offline';
   permissions?: string[];
-  impersonatedBy?: ImpersonatorInfo | null;
 }
 
 export type IntroPhase = 'none' | 'welcome' | 'pulse';
@@ -72,8 +64,6 @@ interface AuthContextType {
   updateOwnProfile: (
     updates: Partial<{ name: string; title: string; department: string; status: string }>
   ) => Promise<void>;
-  startImpersonation: (targetUserId: string, reason: string) => Promise<void>;
-  exitImpersonation: () => Promise<void>;
   tokenDetails: any | null;
   inspectCurrentToken: () => Promise<void>;
 }
@@ -237,44 +227,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           ? {
               ...prev,
               ...res.user,
-              impersonatedBy: prev.impersonatedBy || null,
             }
           : res.user;
         saveStoredUser(nextUser);
         return nextUser;
       });
-    }
-  };
-
-  const startImpersonation = async (targetUserId: string, reason: string) => {
-    setIsLoading(true);
-    try {
-      const res = await api.auth.impersonateUser(targetUserId, reason);
-      if (!res.success || !res.token || !res.user) {
-        throw new Error(res.message || 'Could not start the impersonation session.');
-      }
-      localStorage.setItem('pulsedev_jwt_token', res.token);
-      saveStoredUser(res.user);
-      setToken(res.token);
-      setUser(res.user);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const exitImpersonation = async () => {
-    setIsLoading(true);
-    try {
-      const res = await api.auth.exitImpersonation();
-      if (!res.success || !res.token || !res.user) {
-        throw new Error(res.message || 'Could not restore the administrator session.');
-      }
-      localStorage.setItem('pulsedev_jwt_token', res.token);
-      saveStoredUser(res.user);
-      setToken(res.token);
-      setUser(res.user);
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -305,8 +262,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         logout,
         changePassword,
         updateOwnProfile,
-        startImpersonation,
-        exitImpersonation,
         tokenDetails,
         inspectCurrentToken,
       }}

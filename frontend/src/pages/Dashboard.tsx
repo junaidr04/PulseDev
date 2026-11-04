@@ -29,13 +29,13 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
   return (
     <div
-      className="flex-1 overflow-y-auto bg-[#090b10] role-ambient-grid px-4 sm:px-6 pt-6 pb-24 text-[#f3f5f8] relative"
+      className="relative min-w-0 flex-1 overflow-y-auto bg-[#090b10] role-ambient-grid px-4 pt-6 pb-[calc(6rem+env(safe-area-inset-bottom))] text-[#f3f5f8] sm:px-6"
       style={{ backgroundImage: roleTheme.radialBackdropCss }}
     >
-      <div className="mx-auto max-w-6xl space-y-6">
+      <div className="mx-auto min-w-0 max-w-6xl space-y-6">
         {/* Shared Personalized Role Header */}
         <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between border-b border-white/[0.07] pb-5">
-          <div className="space-y-1.5 min-w-0">
+          <div className="min-w-0 space-y-1.5">
             <div className="flex flex-wrap items-center gap-2 text-xs text-neutral-400">
               <span
                 className="inline-block h-2 w-2 rounded-full"
@@ -55,12 +55,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
               </span>
             </div>
 
-            <h1 className="text-2xl sm:text-[28px] font-bold tracking-[-0.03em] text-white">
+            <h1 className="break-words text-2xl font-bold tracking-[-0.03em] text-white sm:text-[28px]">
               {greeting},{' '}
-              <span
-                className="bg-clip-text text-transparent"
-                style={{ backgroundImage: roleTheme.gradientCss }}
-              >
+              <span className="text-white">
                 {firstName}
               </span>
             </h1>

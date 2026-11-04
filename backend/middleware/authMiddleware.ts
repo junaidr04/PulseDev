@@ -49,7 +49,6 @@ export type Permission =
   | 'team.read'
   | 'team.manage'
   | 'users.manage'
-  | 'users.impersonate'
   | 'audit.read'
   | 'projects.manage'
   | 'tasks.read'
@@ -97,7 +96,6 @@ export const ROLE_PERMISSIONS: Record<string, Permission[]> = {
     'team.read',
     'team.manage',
     'users.manage',
-    'users.impersonate',
     'audit.read',
     'projects.manage',
     'tasks.read',
@@ -113,12 +111,6 @@ export const getPermissionsForRole = (role: string): Permission[] => {
 export interface AuthRequest extends Request {
   user?: any;
   token?: string;
-  impersonatedBy?: {
-    id: string;
-    name: string;
-    email: string;
-    role: string;
-  } | null;
 }
 
 /**
@@ -164,10 +156,19 @@ export const protect = async (req: AuthRequest, res: Response, next: NextFunctio
       id: string;
       email: string;
       role: string;
-      impersonatedBy?: { id: string; name: string; email: string; role: string };
       iat: number;
       exp: number;
+      iss: string;
     };
+
+    const allowedClaims = new Set(['id', 'email', 'role', 'iat', 'exp', 'iss']);
+    if (Object.keys(decoded).some((claim) => !allowedClaims.has(claim))) {
+      return res.status(401).json({
+        success: false,
+        message: 'Token contains unsupported claims. Please sign in again.',
+        code: 'TOKEN_INVALID',
+      });
+    }
 
     // Always load authenticated user from database using the verified token's subject ID
     const user = await db.users.findById(decoded.id);
@@ -186,10 +187,8 @@ export const protect = async (req: AuthRequest, res: Response, next: NextFunctio
     req.user = {
       ...sanitizedUser,
       permissions,
-      impersonatedBy: decoded.impersonatedBy || null,
     };
     req.token = token;
-    req.impersonatedBy = decoded.impersonatedBy || null;
     next();
   } catch (error: any) {
     if (error.name === 'TokenExpiredError') {

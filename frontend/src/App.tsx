@@ -68,7 +68,6 @@ const AppContent: React.FC = () => {
   const {
     user,
     isAuthenticated,
-    exitImpersonation,
     introPhase,
     welcomeSplashUser,
   } = useAuth();
@@ -77,10 +76,10 @@ const AppContent: React.FC = () => {
   );
   const [isTaskModalOpen, setIsTaskModalOpen] = useState<boolean>(false);
   const [isProjectModalOpen, setIsProjectModalOpen] = useState<boolean>(false);
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
   const userRole = user?.role || 'guest';
   const isAdmin = isAuthenticated && userRole === 'admin';
-  const isImpersonating = !!user?.impersonatedBy;
   useSyncRoleCssVariables(user?.role);
   const welcomeTheme = getRoleTheme(welcomeSplashUser?.role || user?.role);
 
@@ -139,7 +138,7 @@ const AppContent: React.FC = () => {
     currentRoute === 'register';
 
   return (
-    <div className="flex h-screen w-screen flex-col overflow-hidden bg-[#090b10] text-[#f3f5f8] font-sans antialiased selection:bg-emerald-500/30 selection:text-white relative">
+    <div className="relative flex h-dvh w-full min-w-0 flex-col overflow-hidden bg-[#090b10] font-sans text-[#f3f5f8] antialiased selection:bg-emerald-500/30 selection:text-white">
       <AnimatePresence mode="wait">
         {introPhase === 'welcome' && welcomeSplashUser && (
           <motion.div
@@ -293,47 +292,28 @@ const AppContent: React.FC = () => {
         }}
         className="flex flex-1 flex-col overflow-hidden h-full w-full"
       >
-        {isImpersonating && user && (
-          <div className="z-40 flex items-center justify-between border-b border-amber-500/30 bg-amber-500/15 px-4 py-2 text-xs text-amber-200">
-            <div className="flex items-center gap-2">
-              <span className="h-2 w-2 rounded-full bg-amber-400 animate-pulse" />
-              <span>
-                You are currently viewing the application as{' '}
-                <strong className="font-semibold text-white">{user.name}</strong>
-                {user.impersonatedBy?.name ? ` (Impersonated by ${user.impersonatedBy.name})` : ''}
-              </span>
-            </div>
-            <button
-              onClick={async () => {
-                await exitImpersonation();
-                setCurrentRoute('admin-audit');
-              }}
-              className="rounded-md border border-amber-400/40 bg-amber-400/20 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-amber-400/30 cursor-pointer"
-            >
-              Exit impersonation
-            </button>
-          </div>
-        )}
-
         <Navbar
           onNavigate={handleNavigate}
           activeRoute={currentRoute}
+          onOpenMenu={() => setIsMobileSidebarOpen(true)}
         />
 
-        <div className="flex flex-1 flex-col md:flex-row overflow-hidden">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden md:flex-row">
           {!isAuthPage && (
             <Sidebar
               currentRoute={currentRoute}
               onNavigate={handleNavigate}
               onOpenNewProject={handleOpenNewProject}
+              isMobileOpen={isMobileSidebarOpen}
+              onMobileClose={() => setIsMobileSidebarOpen(false)}
             />
           )}
 
-          <main className="flex-1 flex flex-col overflow-hidden bg-[#090b10] relative">
+          <main className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-[#090b10]">
             <SafeViewBoundary onReset={() => setCurrentRoute(isAuthenticated ? 'dashboard' : 'login')}>
               <motion.div
                 style={{ willChange: 'transform, opacity' }}
-                className="flex-1 flex flex-col overflow-hidden h-full w-full"
+                className="flex h-full w-full min-w-0 flex-1 flex-col overflow-hidden"
               >
                 {!isAuthenticated ? (
                   currentRoute === 'register' ? (

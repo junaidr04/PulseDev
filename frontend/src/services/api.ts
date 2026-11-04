@@ -92,17 +92,6 @@ export const api = {
         body: JSON.stringify({ role }),
       }),
 
-    impersonateUser: (userId: string, reason: string) =>
-      request(`/api/users/${userId}/impersonate`, {
-        method: 'POST',
-        body: JSON.stringify({ confirmed: true, reason }),
-      }),
-
-    exitImpersonation: () =>
-      request('/api/users/exit-impersonation', {
-        method: 'POST',
-      }),
-
     getAuditLogs: () => request('/api/users/audit-logs'),
 
     inspectToken: (token?: string) =>

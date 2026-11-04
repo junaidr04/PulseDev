@@ -27,10 +27,10 @@ export const Projects: React.FC<ProjectsProps> = ({ onNavigate, onOpenNewProject
   };
 
   return (
-    <div className="flex-1 overflow-y-auto bg-[#0b0c0e] px-6 py-7">
-      <div className="mx-auto max-w-6xl space-y-6">
+    <div className="min-w-0 flex-1 overflow-y-auto bg-[#0b0c0e] px-4 py-5 pb-[calc(6rem+env(safe-area-inset-bottom))] sm:px-6 sm:py-7">
+      <div className="mx-auto min-w-0 max-w-6xl space-y-6">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between border-b border-white/[0.07] pb-5">
-          <div>
+          <div className="min-w-0">
             <h1 className="text-xl font-semibold text-white tracking-tight">
               Initiatives
             </h1>
@@ -61,14 +61,14 @@ export const Projects: React.FC<ProjectsProps> = ({ onNavigate, onOpenNewProject
               <div
                 key={proj._id}
                 onClick={() => handleSelectSprint(proj)}
-                className={`group rounded-xl border p-5 transition-all duration-200 flex flex-col justify-between cursor-pointer ${
+                className={`group min-w-0 rounded-xl border p-4 transition-all duration-200 flex flex-col justify-between cursor-pointer sm:p-5 ${
                   isCurrent
                     ? 'border-white/[0.18] bg-[#14171d]'
                     : 'border-white/[0.07] bg-[#111317] hover:border-white/[0.14] hover:bg-[#14171c]'
                 }`}
               >
                 <div>
-                  <div className="flex items-center justify-between">
+                  <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
                     <span className="font-mono text-xs text-neutral-400">
                       {proj.key}
                     </span>
@@ -77,7 +77,7 @@ export const Projects: React.FC<ProjectsProps> = ({ onNavigate, onOpenNewProject
                     </span>
                   </div>
 
-                  <h3 className="mt-2.5 text-base font-semibold text-white group-hover:text-neutral-100">
+                  <h3 className="mt-2.5 break-words text-base font-semibold text-white group-hover:text-neutral-100 [overflow-wrap:anywhere]">
                     {proj.title}
                   </h3>
 

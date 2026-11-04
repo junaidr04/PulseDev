@@ -412,7 +412,7 @@ export const SprintBoard: React.FC<SprintBoardProps> = ({ onOpenNewTask }) => {
   const selectedTaskPerm = liveSelectedTask ? evaluateTaskControl(liveSelectedTask, user) : null;
 
   return (
-    <div className="flex-1 flex flex-col overflow-hidden bg-[#0b0c0e] relative">
+    <div className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-[#0b0c0e]">
       {/* Floating Permission / Action Notice Toast */}
       <AnimatePresence>
         {toastMessage && (
@@ -429,9 +429,9 @@ export const SprintBoard: React.FC<SprintBoardProps> = ({ onOpenNewTask }) => {
       </AnimatePresence>
 
       {/* Board Header & Role Scope Bar */}
-      <div className="border-b border-white/[0.07] px-6 py-4 space-y-3">
+      <div className="space-y-3 border-b border-white/[0.07] px-3 py-4 sm:px-6">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div>
+          <div className="min-w-0">
             <div className="flex items-center gap-2">
               <span
                 className="font-mono text-xs font-bold"
@@ -439,7 +439,7 @@ export const SprintBoard: React.FC<SprintBoardProps> = ({ onOpenNewTask }) => {
               >
                 {activeProject?.key || 'PAY'}
               </span>
-              <h1 className="text-base font-semibold text-white tracking-tight">
+              <h1 className="min-w-0 break-words text-base font-semibold text-white tracking-tight">
                 {activeProject?.title || 'Global Checkout & Payment Engine v2'}
               </h1>
             </div>
@@ -449,21 +449,21 @@ export const SprintBoard: React.FC<SprintBoardProps> = ({ onOpenNewTask }) => {
           </div>
 
           {/* Filter & Action Controls */}
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="relative">
+          <div className="flex w-full flex-wrap items-center gap-2 lg:w-auto">
+            <div className="relative w-full sm:w-auto">
               <Search className="absolute left-2.5 top-2 h-3.5 w-3.5 text-neutral-500" />
               <input
                 type="text"
                 placeholder="Filter issues..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="h-8 rounded-lg border border-white/[0.08] bg-[#131519] pl-8 pr-3 text-xs text-neutral-200 placeholder-neutral-500 focus:border-white/[0.2] focus:outline-none w-44 sm:w-52"
+                className="min-h-10 w-full rounded-lg border border-white/[0.08] bg-[#131519] pl-8 pr-3 text-sm text-neutral-200 placeholder-neutral-500 focus:border-white/[0.2] focus:outline-none sm:w-52"
               />
             </div>
 
             <button
               onClick={() => setOnlyMyIssues(!onlyMyIssues)}
-              className={`h-8 rounded-lg border px-2.5 text-xs font-medium cursor-pointer ${
+              className={`min-h-10 rounded-lg border px-2.5 text-sm font-medium cursor-pointer ${
                 onlyMyIssues
                   ? 'border-white/[0.2] bg-white/[0.08] text-white'
                   : 'border-white/[0.08] bg-[#131519] text-neutral-400 hover:text-neutral-200'
@@ -475,7 +475,7 @@ export const SprintBoard: React.FC<SprintBoardProps> = ({ onOpenNewTask }) => {
             <select
               value={priorityFilter}
               onChange={(e) => setPriorityFilter(e.target.value)}
-              className="h-8 rounded-lg border border-white/[0.08] bg-[#131519] px-2.5 text-xs text-neutral-300 focus:outline-none cursor-pointer"
+              className="min-h-10 rounded-lg border border-white/[0.08] bg-[#131519] px-2.5 text-sm text-neutral-300 focus:outline-none cursor-pointer"
             >
               <option value="all">All priorities</option>
               <option value="critical">Urgent</option>
@@ -491,13 +491,14 @@ export const SprintBoard: React.FC<SprintBoardProps> = ({ onOpenNewTask }) => {
                 variant="accent"
                 accentColor={roleTheme.accentHex}
                 onClick={onOpenNewTask}
+                className="w-full sm:w-auto"
               />
             )}
           </div>
         </div>
 
         {/* Role-Specific Board Capability Banner */}
-        <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-white/[0.06] bg-[#111317] px-3.5 py-2 text-xs">
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-white/[0.06] bg-[#111317] px-3.5 py-2 text-sm">
           <div className="flex items-center gap-2 text-neutral-300">
             <ShieldCheck
               className="h-3.5 w-3.5 flex-shrink-0"
@@ -507,37 +508,47 @@ export const SprintBoard: React.FC<SprintBoardProps> = ({ onOpenNewTask }) => {
               <strong className="text-white">
                 {user?.name} ({roleTheme.roleTitle}):
               </strong>{' '}
-              {isAdmin &&
-                'Full Architect Authority — Manage any issue, reassign owners, and override a missing QA pass after confirmation. Overrides are audited.'}
-              {isLead &&
-                'Backend Lead Authority — Reassign, reprioritize, comment, and move issues through Backlog, In Progress, and In Review. QA controls returns from review and must pass issues before they can be Done.'}
-              {role === 'developer' &&
-                'Developer Focus — Move only your assigned issues through Backlog, In Progress, and In Review. QA controls returns from review; submit your issues to QA when ready.'}
-              {isQA &&
-                'Quality Gate Authority — Pass or Reject issues in In Review. A rejection requires a reason.'}
-              {isPM &&
-                'Product Manager Studio — Edit issue priority and scope. Product Managers cannot move issues between statuses.'}
+              <span className="md:hidden">
+                {isAdmin && 'Manage issues and assign work. QA overrides need confirmation.'}
+                {isLead && 'Move issues through review. QA must pass them before Done.'}
+                {role === 'developer' && 'Move your assigned issues through review. QA controls Done.'}
+                {isQA && 'Pass or reject issues in review.'}
+                {isPM && 'Edit priority and scope. You cannot move issues.'}
+              </span>
+              <span className="hidden md:inline">
+                {isAdmin &&
+                  'Full Architect Authority — Manage any issue, reassign owners, and override a missing QA pass after confirmation. Overrides are audited.'}
+                {isLead &&
+                  'Backend Lead Authority — Reassign, reprioritize, comment, and move issues through Backlog, In Progress, and In Review. QA controls returns from review and must pass issues before they can be Done.'}
+                {role === 'developer' &&
+                  'Developer Focus — Move only your assigned issues through Backlog, In Progress, and In Review. QA controls returns from review; submit your issues to QA when ready.'}
+                {isQA &&
+                  'Quality Gate Authority — Pass or Reject issues in In Review. A rejection requires a reason.'}
+                {isPM &&
+                  'Product Manager Studio — Edit issue priority and scope. Product Managers cannot move issues between statuses.'}
+              </span>
             </span>
           </div>
-          <span className="font-mono text-[11px] text-neutral-400">
-            Tip: Drag cards between columns or click a card for details
+          <span className="text-sm text-neutral-400">
+            <span className="md:hidden">Tap a card for details</span>
+            <span className="hidden md:inline">Drag cards between columns or click a card for details</span>
           </span>
         </div>
       </div>
 
       {/* Kanban Columns with Drag-and-Drop & Spring Physics */}
-      <div className="flex-1 overflow-x-auto p-6 pb-24">
+      <div className="min-h-0 min-w-0 flex-1 overflow-hidden md:overflow-x-auto">
         {loading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 h-full">
+          <div className="flex h-full snap-x snap-mandatory gap-3 overflow-x-auto overflow-y-hidden overscroll-x-contain px-3 py-3 pb-[calc(6rem+env(safe-area-inset-bottom))] md:grid md:grid-cols-2 md:gap-5 md:overflow-x-auto md:p-6 md:pb-24 lg:grid-cols-4">
             {[1, 2, 3, 4].map((n) => (
               <div
                 key={n}
-                className="rounded-xl border border-white/[0.05] bg-[#101216] p-4 animate-pulse h-96"
+                className="h-full w-[85vw] min-w-[260px] max-w-[85vw] shrink-0 snap-start rounded-xl border border-white/[0.05] bg-[#101216] p-4 animate-pulse md:w-auto md:min-w-0 md:max-w-none"
               />
             ))}
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 min-w-[920px] h-full">
+          <div className="flex h-full snap-x snap-mandatory gap-3 overflow-x-auto overflow-y-hidden overscroll-x-contain px-3 py-3 pb-[calc(6rem+env(safe-area-inset-bottom))] md:grid md:grid-cols-2 md:min-w-[920px] md:gap-5 md:overflow-x-visible md:p-6 md:pb-24 lg:grid-cols-4">
             {COLUMNS.map((col) => {
               const colTasks = filteredTasks.filter((t) => t.column === col.id);
               const isDropTarget = dragOverCol === col.id;
@@ -562,7 +573,7 @@ export const SprintBoard: React.FC<SprintBoardProps> = ({ onOpenNewTask }) => {
                       await handleMoveTask(draggedTask, col.id);
                     }
                   }}
-                  className={`flex flex-col rounded-xl bg-[#0e1014] border transition-colors overflow-hidden ${
+                  className={`flex h-full w-[85vw] min-w-[260px] max-w-[85vw] shrink-0 snap-start flex-col overflow-hidden rounded-xl border bg-[#0e1014] transition-colors md:w-auto md:min-w-0 md:max-w-none ${
                     isDropTarget
                       ? 'border-white/30 bg-[#131722]'
                       : 'border-white/[0.06]'
@@ -582,7 +593,7 @@ export const SprintBoard: React.FC<SprintBoardProps> = ({ onOpenNewTask }) => {
                   </div>
 
                   {/* Cards List */}
-                  <div className="flex-1 overflow-y-auto p-2.5 space-y-2.5">
+                  <div className="min-h-0 min-w-0 flex-1 overflow-y-auto space-y-2.5 p-2.5 pb-[calc(6rem+env(safe-area-inset-bottom))] md:pb-2.5">
                     {colTasks.length === 0 ? (
                       <div className="flex h-36 items-center justify-center rounded-lg border border-dashed border-white/[0.05] text-xs text-neutral-600">
                         Drop issue here
@@ -734,7 +745,7 @@ export const SprintBoard: React.FC<SprintBoardProps> = ({ onOpenNewTask }) => {
                               </div>
                             ) : null}
 
-                            <h4 className="text-[13px] font-medium text-neutral-100 leading-snug group-hover:text-white">
+                            <h4 className="min-w-0 break-words text-sm font-medium leading-snug text-neutral-100 group-hover:text-white [overflow-wrap:anywhere]">
                               {task.title}
                             </h4>
 
@@ -874,15 +885,19 @@ export const SprintBoard: React.FC<SprintBoardProps> = ({ onOpenNewTask }) => {
       {/* Issue Detail Modal */}
       {liveSelectedTask && selectedTaskPerm && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/65 backdrop-blur-sm p-4"
+          role="presentation"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/65 p-3 backdrop-blur-sm sm:p-4"
           onClick={() => setSelectedTask(null)}
         >
           <div
-            className="w-full max-w-xl rounded-xl border border-white/[0.1] bg-[#111317] p-6 shadow-2xl space-y-5"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="issue-detail-title"
+            className="max-h-[calc(100dvh-1.5rem)] w-full max-w-xl space-y-5 overflow-y-auto rounded-xl border border-white/[0.1] bg-[#111317] p-4 shadow-2xl sm:p-6"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-start justify-between gap-4 border-b border-white/[0.07] pb-4">
-              <div>
+            <div className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-white/[0.07] bg-[#111317] pb-4">
+              <div className="min-w-0">
                 <div className="flex items-center gap-2 text-xs text-neutral-400 mb-1">
                   <span className="font-mono">{activeProject?.key || 'PAY'}</span>
                   <span>·</span>
@@ -893,13 +908,14 @@ export const SprintBoard: React.FC<SprintBoardProps> = ({ onOpenNewTask }) => {
                     </strong>
                   </span>
                 </div>
-                <h2 className="text-base font-semibold text-white">
+                <h2 id="issue-detail-title" className="break-words text-base font-semibold text-white [overflow-wrap:anywhere]">
                   {liveSelectedTask.title}
                 </h2>
               </div>
               <button
                 onClick={() => setSelectedTask(null)}
-                className="text-neutral-500 hover:text-white p-1 cursor-pointer"
+                className="flex min-h-10 min-w-10 shrink-0 items-center justify-center rounded-lg text-neutral-500 hover:bg-white/[0.06] hover:text-white"
+                aria-label="Close issue details"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -996,7 +1012,32 @@ export const SprintBoard: React.FC<SprintBoardProps> = ({ onOpenNewTask }) => {
                 <div className="text-[11px] font-medium text-neutral-400">
                   Transition Issue Status ({roleTheme.roleTitle}):
                 </div>
-                <div className="flex flex-wrap items-center gap-1.5">
+                <label className="block space-y-1.5 md:hidden">
+                  <span className="text-sm font-medium text-neutral-300">Move to</span>
+                  <select
+                    value={liveSelectedTask.column}
+                    onChange={(event) =>
+                      void handleMoveTask(
+                        liveSelectedTask,
+                        event.target.value as Task['column']
+                      )
+                    }
+                    className="min-h-11 w-full rounded-lg border border-white/[0.1] bg-[#0e1014] px-3 text-sm text-white focus:outline-none"
+                  >
+                    {COLUMNS.filter(
+                      (column) =>
+                        column.id === liveSelectedTask.column ||
+                        selectedTaskPerm.allowedColumns.includes(column.id)
+                    ).map((column) => (
+                      <option key={column.id} value={column.id}>
+                        {column.id === 'completed' && role === 'qa'
+                          ? 'Done - pass QA'
+                          : column.title}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <div className="hidden flex-wrap items-center gap-1.5 md:flex">
                   {COLUMNS.map((c) => {
                     if (isLead && c.id === 'completed') return null;
                     if (
@@ -1048,6 +1089,18 @@ export const SprintBoard: React.FC<SprintBoardProps> = ({ onOpenNewTask }) => {
                     </button>
                   )}
                 </div>
+                {role === 'qa' && liveSelectedTask.column === 'in_review' && (
+                  <button
+                    onClick={() => {
+                      setRejectingTask(liveSelectedTask);
+                      setRejectionReason('');
+                      setRejectionCategory('');
+                    }}
+                    className="min-h-10 rounded-lg border border-rose-400/35 bg-rose-400/10 px-3 text-sm font-medium text-rose-200 hover:bg-rose-400/20 md:hidden"
+                  >
+                    Reject with reason
+                  </button>
+                )}
               </div>
             ) : (
               <div className="flex items-center gap-2.5 rounded-lg border border-amber-500/20 bg-amber-500/5 p-3 text-xs text-amber-200/90">
@@ -1112,24 +1165,28 @@ export const SprintBoard: React.FC<SprintBoardProps> = ({ onOpenNewTask }) => {
 
       {rejectingTask && (
         <div
-          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
+          role="presentation"
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 p-3 backdrop-blur-sm sm:p-4"
           onClick={() => !isSubmittingRejection && setRejectingTask(null)}
         >
           <form
             onSubmit={handleRejectSubmit}
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-md space-y-4 rounded-xl border border-white/[0.1] bg-[#111317] p-5 shadow-2xl"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="reject-issue-title"
+            className="max-h-[calc(100dvh-1.5rem)] w-full max-w-md space-y-4 overflow-y-auto rounded-xl border border-white/[0.1] bg-[#111317] p-4 shadow-2xl sm:p-5"
           >
             <div className="flex items-start justify-between gap-3">
               <div>
-                <h2 className="text-sm font-semibold text-white">Reject issue</h2>
-                <p className="mt-1 text-xs text-neutral-400">{rejectingTask.title}</p>
+                <h2 id="reject-issue-title" className="text-sm font-semibold text-white">Reject issue</h2>
+                <p className="mt-1 break-words text-xs text-neutral-400">{rejectingTask.title}</p>
               </div>
               <button
                 type="button"
                 onClick={() => setRejectingTask(null)}
                 disabled={isSubmittingRejection}
-                className="text-neutral-500 hover:text-white disabled:opacity-50"
+                className="flex min-h-10 min-w-10 items-center justify-center rounded-lg text-neutral-500 hover:bg-white/[0.06] hover:text-white disabled:opacity-50"
                 aria-label="Close rejection form"
               >
                 <X className="h-4 w-4" />
@@ -1146,7 +1203,7 @@ export const SprintBoard: React.FC<SprintBoardProps> = ({ onOpenNewTask }) => {
                 onChange={(e) => setRejectionReason(e.target.value)}
                 placeholder="Describe what needs to be fixed..."
                 rows={4}
-                className="w-full resize-y rounded-lg border border-white/[0.1] bg-[#0e1014] px-3 py-2 text-xs text-white placeholder-neutral-500 focus:border-rose-400/50 focus:outline-none"
+                className="min-h-24 w-full resize-y rounded-lg border border-white/[0.1] bg-[#0e1014] px-3 py-2 text-sm text-white placeholder-neutral-500 focus:border-rose-400/50 focus:outline-none"
               />
               <span className="block text-right text-[10px] text-neutral-500">{rejectionReason.length}/500</span>
             </label>
@@ -1156,7 +1213,7 @@ export const SprintBoard: React.FC<SprintBoardProps> = ({ onOpenNewTask }) => {
               <select
                 value={rejectionCategory}
                 onChange={(e) => setRejectionCategory(e.target.value)}
-                className="w-full rounded-lg border border-white/[0.1] bg-[#0e1014] px-3 py-2 text-xs text-white focus:outline-none"
+                className="min-h-11 w-full rounded-lg border border-white/[0.1] bg-[#0e1014] px-3 py-2 text-sm text-white focus:outline-none"
               >
                 <option value="">No category</option>
                 <option value="Functional bug">Functional bug</option>
@@ -1171,14 +1228,14 @@ export const SprintBoard: React.FC<SprintBoardProps> = ({ onOpenNewTask }) => {
                 type="button"
                 onClick={() => setRejectingTask(null)}
                 disabled={isSubmittingRejection}
-                className="rounded-lg border border-white/[0.1] px-3 py-2 text-xs text-neutral-300 hover:text-white disabled:opacity-50"
+                className="min-h-11 rounded-lg border border-white/[0.1] px-3 py-2 text-sm text-neutral-300 hover:text-white disabled:opacity-50"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={!rejectionReason.trim() || isSubmittingRejection}
-                className="rounded-lg bg-rose-500 px-3 py-2 text-xs font-semibold text-white hover:bg-rose-400 disabled:cursor-not-allowed disabled:opacity-50"
+                className="min-h-11 rounded-lg bg-rose-500 px-3 py-2 text-sm font-semibold text-white hover:bg-rose-400 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {isSubmittingRejection ? 'Rejecting...' : 'Reject issue'}
               </button>

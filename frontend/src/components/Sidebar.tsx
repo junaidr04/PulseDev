@@ -1,15 +1,16 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import {
-  LayoutGrid,
-  Kanban,
   FolderGit2,
-  Sparkles,
-  Plus,
-  Users,
-  ShieldCheck,
-  UserCheck,
+  Kanban,
+  LayoutGrid,
   PanelLeftClose,
   PanelLeftOpen,
+  Plus,
+  ShieldCheck,
+  Sparkles,
+  Users,
+  X,
 } from 'lucide-react';
 import { useProjects } from '../context/ProjectContext';
 import { useAuth } from '../context/AuthContext';
@@ -19,351 +20,266 @@ interface SidebarProps {
   currentRoute: string;
   onNavigate: (route: string) => void;
   onOpenNewProject: () => void;
+  isMobileOpen: boolean;
+  onMobileClose: () => void;
 }
-
-const INITIATIVE_DOT_STYLES: Record<string, { base: string; active: string }> = {
-  PAY: {
-    base: 'bg-emerald-400',
-    active: 'bg-emerald-400 ring-4 ring-emerald-400/25 shadow-[0_0_8px_#10b981]',
-  },
-  MOB: {
-    base: 'bg-amber-400',
-    active: 'bg-amber-400 ring-4 ring-amber-400/25 shadow-[0_0_8px_#f59e0b]',
-  },
-  OPS: {
-    base: 'bg-blue-400',
-    active: 'bg-blue-400 ring-4 ring-blue-400/25 shadow-[0_0_8px_#3b82f6]',
-  },
-};
 
 export const Sidebar: React.FC<SidebarProps> = ({
   currentRoute,
   onNavigate,
   onOpenNewProject,
+  isMobileOpen,
+  onMobileClose,
 }) => {
   const { projects, activeProject, setActiveProject } = useProjects();
   const { user } = useAuth();
   const [collapsed, setCollapsed] = useState(false);
-
-  const tabRefs = useRef<Record<string, HTMLButtonElement | null>>({});
-  const initiativeRefs = useRef<Record<string, HTMLButtonElement | null>>({});
-
-  const isAdmin = user?.role === 'admin';
-  const canCreateProject = !!user;
   const roleTheme = getRoleTheme(user?.role);
+  const reduceMotion = useReducedMotion();
 
-  // Auto-scroll active tab and active initiative chip into view on load and on switch
-  useEffect(() => {
-    const activeTabEl = tabRefs.current[currentRoute];
-    if (activeTabEl) {
-      activeTabEl.scrollIntoView({
-        behavior: 'smooth',
-        block: 'nearest',
-        inline: 'center',
-      });
-    }
-  }, [currentRoute]);
-
-  useEffect(() => {
-    if (activeProject?._id) {
-      const activeInitEl = initiativeRefs.current[activeProject._id];
-      if (activeInitEl) {
-        activeInitEl.scrollIntoView({
-          behavior: 'smooth',
-          block: 'nearest',
-          inline: 'center',
-        });
-      }
-    }
-  }, [activeProject?._id]);
-
-  const navItems: Array<{
-    id: string;
-    label: string;
-    icon: any;
-    shortcut: string;
-    badge?: string;
-  }> = [
+  const navItems = [
     { id: 'dashboard', label: 'Overview', icon: LayoutGrid, shortcut: 'G O' },
     { id: 'board', label: 'Active Sprint', icon: Kanban, shortcut: 'G S' },
-    {
-      id: 'projects',
-      label: 'Initiatives',
-      icon: FolderGit2,
-      shortcut: 'G I',
-      badge: `${projects.length}`,
-    },
+    { id: 'projects', label: 'Initiatives', icon: FolderGit2, shortcut: 'G I', badge: `${projects.length}` },
     { id: 'ai', label: 'Planning Assistant', icon: Sparkles, shortcut: 'G A' },
     { id: 'profile', label: 'Team Members', icon: Users, shortcut: 'G T' },
+    ...(user?.role === 'admin'
+      ? [{ id: 'admin-audit', label: 'Security & Logs', icon: ShieldCheck, shortcut: 'G L' }]
+      : []),
   ];
 
-  if (isAdmin) {
-    navItems.push(
-      {
-        id: 'admin-audit',
-        label: 'Security & Logs',
-        icon: ShieldCheck,
-        shortcut: 'G L',
-      },
-      {
-        id: 'impersonate',
-        label: 'User Impersonation',
-        icon: UserCheck,
-        shortcut: 'G U',
-      }
-    );
-  }
+  useEffect(() => {
+    if (!isMobileOpen) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onMobileClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isMobileOpen, onMobileClose]);
 
-  const handleNavItemClick = (id: string) => {
-    if (id === 'impersonate') {
-      sessionStorage.setItem('pulsedev_admin_audit_focus', 'impersonation');
-      onNavigate('admin-audit');
-      return;
+  const navigate = (route: string) => {
+    onNavigate(route);
+    onMobileClose();
+  };
+
+  const selectProject = (project: (typeof projects)[number]) => {
+    setActiveProject(project);
+    if (currentRoute !== 'board' && currentRoute !== 'dashboard') {
+      onNavigate('board');
     }
-    onNavigate(id);
+    onMobileClose();
   };
 
   return (
     <>
-      {/* Mobile Horizontal Navigation Bar (Always visible on mobile < md) */}
-      <div className="flex md:hidden flex-col border-b border-white/[0.07] bg-[#0a0d14] select-none">
-        {/* Row 1: Primary Navigation Tabs (Hidden scrollbar + Right-edge fade + >=44px touch targets) */}
-        <div className="relative">
-          <div className="flex items-center gap-1.5 overflow-x-auto px-3 pr-10 py-1.5 no-scrollbar scroll-fade-right">
-            {navItems.map((item) => {
-              const Icon = item.icon;
-              const isActive = currentRoute === item.id;
-              return (
-                <button
-                  key={item.id}
-                  ref={(el) => {
-                    tabRefs.current[item.id] = el;
-                  }}
-                  onClick={() => handleNavItemClick(item.id)}
-                  className={`relative flex min-h-[44px] items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs whitespace-nowrap flex-shrink-0 transition-all cursor-pointer ${
-                    isActive
-                      ? 'bg-white/[0.09] text-white font-semibold border border-white/[0.2] shadow-sm'
-                      : 'bg-white/[0.03] text-neutral-300 border border-white/[0.06] hover:text-white'
-                  }`}
-                >
-                  <Icon
-                    className="h-3.5 w-3.5"
-                    style={{ color: isActive ? roleTheme.accentHex : undefined }}
-                  />
-                  <span>{item.label}</span>
-                  {item.badge && (
-                    <span className="ml-0.5 rounded bg-white/[0.08] px-1.5 py-0.5 font-mono text-[10px] text-neutral-200">
-                      {item.badge}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-          <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-9 bg-gradient-to-l from-[#0a0d14] via-[#0a0d14]/70 to-transparent" />
-        </div>
-
-        {/* Row 2: Mobile Initiatives Quick Bar (Hidden scrollbar + Right-edge fade + >=44px touch targets) */}
-        <div className="relative border-t border-white/[0.05] bg-[#080a10]">
-          <div className="flex items-center gap-1.5 overflow-x-auto px-3 pr-10 py-1 no-scrollbar scroll-fade-right">
-            <span className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400 flex-shrink-0 mr-1">
-              Initiatives:
-            </span>
-            {projects.map((p) => {
-              const isSelected = activeProject?._id === p._id;
-              const dotConfig = INITIATIVE_DOT_STYLES[p.key] || {
-                base: 'bg-emerald-400',
-                active: 'bg-emerald-400 ring-2 ring-emerald-400/30',
-              };
-              return (
-                <button
-                  key={p._id}
-                  ref={(el) => {
-                    initiativeRefs.current[p._id] = el;
-                  }}
-                  onClick={() => {
-                    setActiveProject(p);
-                    if (currentRoute !== 'board' && currentRoute !== 'dashboard') {
-                      onNavigate('board');
-                    }
-                  }}
-                  className={`flex min-h-[44px] items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs whitespace-nowrap flex-shrink-0 transition-all cursor-pointer ${
-                    isSelected
-                      ? 'bg-white/[0.1] text-white font-semibold border border-white/[0.16]'
-                      : 'text-neutral-300 hover:text-white border border-transparent'
-                  }`}
-                >
-                  <span
-                    className={`h-2 w-2 rounded-full flex-shrink-0 ${
-                      isSelected ? dotConfig.active : dotConfig.base
-                    }`}
-                  />
-                  <span className="font-mono text-[11px] text-neutral-200">{p.key}</span>
-                  <span className="max-w-[130px] truncate">{p.title}</span>
-                  <span className="font-mono text-[11px] text-emerald-400">{p.progress}%</span>
-                </button>
-              );
-            })}
-            {canCreateProject && (
+      <AnimatePresence>
+        {isMobileOpen && (
+        <motion.div
+          initial={reduceMotion ? false : { opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: reduceMotion ? 0 : 0.18, ease: 'easeOut' }}
+          className="fixed inset-0 z-50 md:hidden"
+        >
+          <button
+            type="button"
+            aria-label="Close navigation"
+            className="absolute inset-0 bg-black/60"
+            onClick={onMobileClose}
+          />
+          <motion.aside
+            initial={reduceMotion ? false : { x: '-100%' }}
+            animate={{ x: 0 }}
+            exit={{ x: '-100%' }}
+            transition={{ duration: reduceMotion ? 0 : 0.2, ease: 'easeOut' }}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Workspace navigation"
+            className="absolute inset-y-0 left-0 flex w-[min(85vw,18rem)] flex-col border-r border-white/[0.08] bg-[#0a0d14] shadow-xl"
+          >
+            <div className="flex min-h-14 items-center justify-between border-b border-white/[0.07] px-4 py-2">
+              <span className="text-sm font-semibold text-white">Workspace</span>
               <button
-                onClick={onOpenNewProject}
-                className="flex min-h-[44px] min-w-[44px] h-11 w-11 items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.04] text-emerald-400 flex-shrink-0 cursor-pointer"
-                title="New initiative"
-                aria-label="New initiative"
+                type="button"
+                onClick={onMobileClose}
+                aria-label="Close navigation"
+                className="flex min-h-10 min-w-10 items-center justify-center rounded-lg text-neutral-300 hover:bg-white/[0.06] hover:text-white"
               >
-                <Plus className="h-4 w-4" />
+                <X className="h-4 w-4" />
               </button>
-            )}
-          </div>
-          <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-9 bg-gradient-to-l from-[#080a10] via-[#080a10]/70 to-transparent" />
-        </div>
-      </div>
+            </div>
+            <nav className="space-y-1 px-2.5 py-3">
+              {navItems.map(({ id, label, icon: Icon, badge }) => (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => navigate(id)}
+                  className={`flex min-h-11 w-full items-center gap-3 rounded-lg px-3 text-left text-sm ${
+                    currentRoute === id
+                      ? 'bg-white/[0.08] text-white'
+                      : 'text-neutral-300 hover:bg-white/[0.04]'
+                  }`}
+                >
+                  <Icon className="h-4 w-4 shrink-0" />
+                  <span className="min-w-0 flex-1 truncate">{label}</span>
+                  {badge && <span className="text-xs text-neutral-500">{badge}</span>}
+                </button>
+              ))}
+            </nav>
+            <div className="min-h-0 flex-1 overflow-y-auto border-t border-white/[0.07] px-2.5 py-3">
+              <div className="mb-2 flex items-center justify-between px-2 text-xs font-medium text-neutral-400">
+                <span>Projects</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onOpenNewProject();
+                    onMobileClose();
+                  }}
+                  className="flex min-h-10 min-w-10 items-center justify-center rounded-md hover:bg-white/[0.06]"
+                  aria-label="New project"
+                >
+                  <Plus className="h-4 w-4" />
+                </button>
+              </div>
+              <div className="space-y-1">
+                {projects.map((project) => (
+                  <button
+                    key={project._id}
+                    type="button"
+                    onClick={() => selectProject(project)}
+                    className={`flex min-h-11 w-full items-center gap-2 rounded-lg px-3 text-left text-sm ${
+                      activeProject?._id === project._id
+                        ? 'bg-white/[0.08] text-white'
+                        : 'text-neutral-300 hover:bg-white/[0.04]'
+                    }`}
+                  >
+                    <span className="h-2 w-2 shrink-0 rounded-full bg-emerald-400" />
+                    <span className="min-w-0 flex-1 truncate">{project.title}</span>
+                    <span className="shrink-0 text-xs text-neutral-500">
+                      {project.progress}%
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </motion.aside>
+        </motion.div>
+        )}
+      </AnimatePresence>
 
-      {/* Desktop Left Sidebar (md and up) */}
       <aside
         aria-label="Workspace navigation"
         className={`hidden md:flex flex-col border-r border-white/[0.07] bg-[#0a0d14] select-none transition-all duration-200 ${
           collapsed ? 'w-16' : 'w-60'
         }`}
       >
-      {/* Primary Navigation */}
-      <div className="px-2.5 pt-4 pb-2">
-        <nav className="space-y-1">
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            const isActive = currentRoute === item.id;
-            return (
-              <button
-                key={item.id}
-                onClick={() => handleNavItemClick(item.id)}
-                title={collapsed ? `${item.label} (${item.shortcut})` : undefined}
-                className={`group relative flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-[13px] transition-all duration-150 cursor-pointer ${
-                  isActive
-                    ? 'bg-white/[0.07] text-white font-medium'
-                    : 'text-neutral-400 hover:bg-white/[0.035] hover:text-neutral-200'
-                }`}
-              >
-                {/* Active Indicator Bar */}
-                {isActive && (
-                  <span
-                    className="absolute left-0 top-1.5 bottom-1.5 w-1 rounded-r"
-                    style={{ backgroundImage: roleTheme.gradientCss }}
-                  />
-                )}
-
-                <div className={`flex items-center gap-2.5 truncate ${collapsed ? 'mx-auto' : ''}`}>
-                  <Icon
-                    className={`h-4 w-4 flex-shrink-0 transition-colors ${
-                      isActive ? '' : 'text-neutral-500 group-hover:text-neutral-300'
-                    }`}
-                    style={{ color: isActive ? roleTheme.accentHex : undefined }}
-                  />
-                  {!collapsed && <span className="truncate">{item.label}</span>}
-                </div>
-
-                {!collapsed && (
-                  <div className="flex items-center gap-1.5">
-                    {item.badge ? (
-                      <span className="font-mono text-[11px] text-neutral-500">
-                        {item.badge}
-                      </span>
-                    ) : (
-                      <span className="opacity-0 group-hover:opacity-100 font-mono text-[10px] text-neutral-600 transition-opacity">
-                        {item.shortcut}
-                      </span>
-                    )}
+        <div className="px-2.5 pt-4 pb-2">
+          <nav className="space-y-1">
+            {navItems.map((item) => {
+              const Icon = item.icon;
+              const isActive = currentRoute === item.id;
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => navigate(item.id)}
+                  title={collapsed ? `${item.label} (${item.shortcut})` : undefined}
+                  className={`group relative flex min-h-10 w-full items-center justify-between rounded-lg px-2.5 py-2 text-[13px] transition-colors ${
+                    isActive
+                      ? 'bg-white/[0.07] text-white font-medium'
+                      : 'text-neutral-400 hover:bg-white/[0.035] hover:text-neutral-200'
+                  }`}
+                >
+                  {isActive && (
+                    <span
+                      className="absolute left-0 top-1.5 bottom-1.5 w-1 rounded-r"
+                      style={{ backgroundColor: roleTheme.accentHex }}
+                    />
+                  )}
+                  <div className={`flex min-w-0 items-center gap-2.5 ${collapsed ? 'mx-auto' : ''}`}>
+                    <Icon
+                      className="h-4 w-4 shrink-0"
+                      style={{ color: isActive ? roleTheme.accentHex : undefined }}
+                    />
+                    {!collapsed && <span className="truncate">{item.label}</span>}
                   </div>
-                )}
-              </button>
-            );
-          })}
-        </nav>
-      </div>
+                  {!collapsed && item.badge && (
+                    <span className="text-xs text-neutral-500">{item.badge}</span>
+                  )}
+                  {!collapsed && !item.badge && (
+                    <span className="font-mono text-[10px] text-neutral-600 opacity-0 transition-opacity group-hover:opacity-100">
+                      {item.shortcut}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </nav>
+        </div>
 
-      {/* Initiatives List */}
-      <div className="mt-3 flex-1 overflow-y-auto px-2.5 py-2 border-t border-white/[0.06]">
-        {!collapsed && (
-          <div className="flex items-center justify-between px-2.5 mb-2">
-            <span className="text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
-              Initiatives
-            </span>
-            {canCreateProject && (
+        <div className="mt-3 flex-1 overflow-y-auto border-t border-white/[0.06] px-2.5 py-2">
+          {!collapsed && (
+            <div className="mb-2 flex items-center justify-between px-2.5">
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
+                Initiatives
+              </span>
+              {user && (
+                <button
+                  type="button"
+                  onClick={onOpenNewProject}
+                  className="flex min-h-10 min-w-10 items-center justify-center rounded text-neutral-400 hover:bg-white/[0.08] hover:text-white"
+                  title="New initiative"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+          )}
+          <div className="space-y-1">
+            {projects.map((project) => (
               <button
-                onClick={onOpenNewProject}
-                className="flex h-5 w-5 items-center justify-center rounded text-neutral-400 hover:bg-white/[0.08] hover:text-white transition-colors cursor-pointer"
-                title="New initiative"
-              >
-                <Plus className="h-3.5 w-3.5" />
-              </button>
-            )}
-          </div>
-        )}
-
-        <div className="space-y-1">
-          {projects.map((p) => {
-            const isSelected = activeProject?._id === p._id;
-            const dotConfig = INITIATIVE_DOT_STYLES[p.key] || {
-              base: 'bg-emerald-400',
-              active: 'bg-emerald-400 ring-4 ring-emerald-400/25',
-            };
-
-            return (
-              <button
-                key={p._id}
-                onClick={() => {
-                  setActiveProject(p);
-                  if (currentRoute !== 'board' && currentRoute !== 'dashboard') {
-                    onNavigate('board');
-                  }
-                }}
-                title={collapsed ? `${p.title} (${p.progress}%)` : undefined}
-                className={`group relative flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-left text-xs transition-all cursor-pointer ${
-                  isSelected
-                    ? 'bg-white/[0.08] text-white font-semibold border border-white/[0.12] shadow-sm'
-                    : 'text-neutral-300 hover:bg-white/[0.04] hover:text-white border border-transparent'
+                key={project._id}
+                type="button"
+                onClick={() => selectProject(project)}
+                title={collapsed ? project.title : undefined}
+                className={`flex min-h-10 w-full items-center justify-between rounded-lg border px-2.5 py-2 text-left text-xs transition-colors ${
+                  activeProject?._id === project._id
+                    ? 'border-white/[0.12] bg-white/[0.08] font-semibold text-white'
+                    : 'border-transparent text-neutral-300 hover:bg-white/[0.04] hover:text-white'
                 }`}
               >
-                <div className={`flex items-center gap-2.5 truncate ${collapsed ? 'mx-auto' : ''}`}>
-                  <span
-                    className={`h-2 w-2 rounded-full flex-shrink-0 transition-all ${
-                      isSelected ? dotConfig.active : dotConfig.base
-                    }`}
-                  />
-                  {!collapsed && <span className="truncate">{p.title}</span>}
-                </div>
+                <span className={`flex min-w-0 items-center gap-2.5 ${collapsed ? 'mx-auto' : ''}`}>
+                  <span className="h-2 w-2 shrink-0 rounded-full bg-emerald-400" />
+                  {!collapsed && <span className="truncate">{project.title}</span>}
+                </span>
                 {!collapsed && (
-                  <span
-                    className={`font-mono text-[11px] ml-2 ${
-                      isSelected ? 'text-white font-semibold' : 'text-neutral-400'
-                    }`}
-                  >
-                    {p.progress}%
+                  <span className="ml-2 shrink-0 text-[11px] text-neutral-400">
+                    {project.progress}%
                   </span>
                 )}
               </button>
-            );
-          })}
+            ))}
+          </div>
         </div>
-      </div>
 
-      {/* Footer Collapse Toggle (WCAG AA High Contrast) */}
-      <div className="border-t border-white/[0.08] p-2.5 flex items-center justify-between">
-        <button
-          onClick={() => setCollapsed(!collapsed)}
-          className={`flex h-7 w-7 items-center justify-center rounded-lg text-neutral-400 hover:bg-white/[0.06] hover:text-white transition-colors cursor-pointer ${
-            collapsed ? 'mx-auto' : ''
-          }`}
-          title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-          aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-        >
-          {collapsed ? (
-            <PanelLeftOpen className="h-4 w-4" />
-          ) : (
-            <PanelLeftClose className="h-4 w-4" />
-          )}
-        </button>
-      </div>
-    </aside>
+        <div className="flex items-center justify-between border-t border-white/[0.08] p-2.5">
+          <button
+            type="button"
+            onClick={() => setCollapsed((value) => !value)}
+            className={`flex h-10 w-10 items-center justify-center rounded-lg text-neutral-400 hover:bg-white/[0.06] hover:text-white ${
+              collapsed ? 'mx-auto' : ''
+            }`}
+            title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          >
+            {collapsed ? (
+              <PanelLeftOpen className="h-4 w-4" />
+            ) : (
+              <PanelLeftClose className="h-4 w-4" />
+            )}
+          </button>
+        </div>
+      </aside>
     </>
   );
 };

@@ -236,10 +236,10 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigate }) => {
   );
 
   return (
-    <div className="flex-1 overflow-y-auto bg-[#0b0c0e] px-6 py-7 pb-24">
-      <div className="mx-auto max-w-6xl space-y-6">
+    <div className="min-w-0 flex-1 overflow-y-auto bg-[#0b0c0e] px-4 py-5 pb-[calc(6rem+env(safe-area-inset-bottom))] sm:px-6 sm:py-7">
+      <div className="mx-auto min-w-0 max-w-6xl space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 border-b border-white/[0.07] pb-5">
-          <div>
+          <div className="min-w-0">
             <h1 className="text-xl font-semibold text-white tracking-tight">
               Profile, Security & Team Directory
             </h1>
@@ -248,7 +248,7 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigate }) => {
             </p>
           </div>
 
-          <div className="flex items-center gap-1.5 rounded-xl border border-white/[0.08] bg-[#111317] p-1">
+          <div className="flex w-full items-center gap-1.5 rounded-xl border border-white/[0.08] bg-[#111317] p-1 sm:w-auto">
             <button
               onClick={() => {
                 setActiveTab('directory');
@@ -395,7 +395,7 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigate }) => {
                         key={member._id || member.email}
                         type="button"
                         onClick={() => handleInspectMemberProfile(member)}
-                        className={`w-full flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-5 py-3.5 text-left transition-colors cursor-pointer ${
+                        className={`w-full min-w-0 flex flex-col gap-3 px-4 py-3.5 text-left transition-colors cursor-pointer sm:flex-row sm:items-center sm:justify-between sm:px-5 ${
                           isSelected ? 'bg-white/[0.06]' : 'hover:bg-white/[0.03]'
                         }`}
                       >
@@ -425,7 +425,7 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigate }) => {
                           </div>
                         </div>
 
-                        <div className="flex flex-wrap items-center gap-2 flex-shrink-0">
+                        <div className="flex min-w-0 flex-wrap items-center gap-2 sm:flex-shrink-0">
                           <span className="rounded border border-white/[0.08] bg-white/[0.03] px-2 py-0.5 text-[11px] font-mono text-neutral-300 capitalize">
                             {member.role === 'guest' ? 'PM' : member.role}
                           </span>

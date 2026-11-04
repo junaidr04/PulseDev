@@ -88,7 +88,6 @@ export const AdminDashboard: React.FC<RoleCockpitProps> = ({
   }, []);
 
   const openUserManagement = () => {
-    sessionStorage.setItem('pulsedev_admin_audit_focus', 'impersonation');
     onNavigate('admin-audit');
   };
 

@@ -252,8 +252,8 @@ export const AiAssistant: React.FC = () => {
       />
 
       {/* Header with Linear-Style Precision & Role Identity */}
-      <div className="relative z-10 border-b border-white/[0.08] bg-[#0c0f17]/85 backdrop-blur-xl px-6 py-4.5">
-        <div className="max-w-6xl mx-auto flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="relative z-10 border-b border-white/[0.08] bg-[#0c0f17]/85 px-4 py-4 sm:px-6 sm:py-4.5">
+        <div className="mx-auto flex min-w-0 max-w-6xl flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-start sm:items-center gap-3.5">
             {/* Pulsing Icon Shield */}
             <div
@@ -317,7 +317,7 @@ export const AiAssistant: React.FC = () => {
         </div>
 
         {/* Tab Navigation Pill Bar */}
-        <div className="max-w-6xl mx-auto mt-4 pt-3 border-t border-white/[0.06] flex items-center gap-2 overflow-x-auto no-scrollbar">
+        <div className="mx-auto mt-4 flex min-w-0 max-w-6xl items-center gap-2 overflow-x-auto border-t border-white/[0.06] pt-3 no-scrollbar">
           {[
             { id: 'sprint' as const, label: 'Story Planner', icon: Layers, count: generatedTasks.length },
             { id: 'audit' as const, label: 'Architecture Review', icon: Cpu, badge: 'Live' },
@@ -378,8 +378,8 @@ export const AiAssistant: React.FC = () => {
       </div>
 
       {/* Main Content Area */}
-      <div className="flex-1 overflow-y-auto px-6 py-6 scroll-smooth">
-        <div className="max-w-6xl mx-auto space-y-6">
+      <div className="min-w-0 flex-1 overflow-y-auto px-4 py-5 pb-[calc(6rem+env(safe-area-inset-bottom))] scroll-smooth sm:px-6 sm:py-6">
+        <div className="mx-auto min-w-0 max-w-6xl space-y-6">
 
           {/* TAB 1: SPRINT PLANNER */}
           {activeTab === 'sprint' && (

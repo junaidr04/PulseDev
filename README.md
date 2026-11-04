@@ -76,7 +76,13 @@ Gemini integration is optional. When the Gemini API is unavailable, some workflo
 
 ### Team profiles and administration
 
-Team Members shows account profiles and the Sprint Board permission summary. Users can update their own profile and change their password. Admin-only tools include user administration, audit-log inspection, account impersonation, and the database inspector/reset controls.
+Team Members shows account profiles and the Sprint Board permission summary. Users can update their own profile and change their password. Admin-only tools include user administration, audit-log inspection, and the database inspector/reset controls.
+
+### Small-screen use
+
+On phones, the workspace navigation opens as a drawer from the menu button. The sprint board scrolls one column at a time; tap an issue to see its details and use **Move to** when your role permits a status change. QA can pass an issue or reject it with a reason. The Security & Logs page uses stacked entries on phones and keeps its table on wider screens. Dialogs and Team Chat fit the screen and scroll internally when their content is tall.
+
+Administrators can review activity and manage roles, but the application does not provide a way to sign in as another user. Unrecognized event names in older audit records are displayed as recorded.
 
 ## Application architecture
 

@@ -590,7 +590,7 @@ export const TeamChatWidget: React.FC = () => {
         </div>
       )}
 
-      <div className="fixed bottom-5 right-5 z-50">
+      <div className="fixed bottom-[calc(1rem+env(safe-area-inset-bottom))] right-3 z-50 max-w-[calc(100vw-1.5rem)] sm:right-5">
         {/* Minimized Trigger Button (Floating Glass Layer with >=44x44px Touch Target) */}
         {!isOpen && (
           <button
@@ -613,10 +613,10 @@ export const TeamChatWidget: React.FC = () => {
         {/* Open Chat Window */}
         {isOpen && (
           <div
-            className={`relative flex flex-col rounded-2xl border border-white/[0.14] bg-[#111317] shadow-[0_24px_60px_rgba(0,0,0,0.85),0_0_36px_rgba(16,185,129,0.15)] overflow-hidden transition-all duration-200 animate-modal-pop ${
+            className={`relative flex h-[min(78dvh,40rem)] w-[calc(100vw-1.5rem)] max-w-[34rem] flex-col overflow-hidden rounded-2xl border border-white/[0.14] bg-[#111317] shadow-[0_24px_60px_rgba(0,0,0,0.85),0_0_36px_rgba(16,185,129,0.15)] transition-all duration-200 animate-modal-pop ${
               isExpanded
-                ? 'w-[94vw] sm:w-[540px] h-[640px]'
-                : 'w-[92vw] sm:w-[420px] h-[540px]'
+                ? 'sm:max-w-[34rem]'
+                : 'sm:max-w-[26rem]'
             }`}
           >
             <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-emerald-400 via-teal-300 to-cyan-400 z-10" />

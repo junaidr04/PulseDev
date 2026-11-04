@@ -6,6 +6,7 @@ import NotificationPopover from './NotificationPopover';
 import {
   ChevronDown,
   LogOut,
+  Menu,
   Search,
   Settings,
   User as UserIcon,
@@ -20,6 +21,7 @@ import {
 interface NavbarProps {
   onNavigate: (route: string) => void;
   activeRoute: string;
+  onOpenMenu: () => void;
 }
 
 export const PulseBrandLogo: React.FC<{ size?: 'sm' | 'md' | 'lg' }> = ({ size = 'md' }) => {
@@ -89,6 +91,7 @@ export const PulseBrandLogo: React.FC<{ size?: 'sm' | 'md' | 'lg' }> = ({ size =
 export const Navbar: React.FC<NavbarProps> = ({
   onNavigate,
   activeRoute,
+  onOpenMenu,
 }) => {
   const { user, logout, isAuthenticated } = useAuth();
   const { projects, tasks, activeProject, setActiveProject } = useProjects();
@@ -143,9 +146,19 @@ export const Navbar: React.FC<NavbarProps> = ({
 
   return (
     <>
-      <header className="sticky top-0 z-30 flex h-15 w-full items-center justify-between border-b border-white/[0.07] bg-[#090b10]/90 px-3 sm:px-4 backdrop-blur-xl">
+      <header className="sticky top-0 z-30 flex h-15 w-full min-w-0 items-center justify-between gap-2 border-b border-white/[0.07] bg-[#090b10]/90 px-2 sm:gap-3 sm:px-4 backdrop-blur-xl">
         {/* Left: Unique PulseDev Brand + Context Breadcrumb */}
         <div className="flex min-w-0 flex-1 items-center gap-3">
+          {isAuthenticated && (
+            <button
+              type="button"
+              onClick={onOpenMenu}
+              aria-label="Open navigation"
+              className="flex h-11 min-h-11 w-11 min-w-11 shrink-0 items-center justify-center rounded-lg border border-white/[0.08] text-neutral-300 hover:bg-white/[0.05] md:hidden"
+            >
+              <Menu className="h-5 w-5" />
+            </button>
+          )}
           <div
             onClick={() => onNavigate('dashboard')}
             className="min-h-[44px] flex shrink-0 cursor-pointer items-center"
@@ -174,7 +187,7 @@ export const Navbar: React.FC<NavbarProps> = ({
         </div>
 
         {/* Center / Right: Command Palette Search (Desktop input + Mobile <640px icon button), Notifications & User Menu */}
-        <div className="flex shrink-0 items-center gap-2">
+        <div className="flex shrink-0 items-center gap-1 sm:gap-2">
           {isAuthenticated && (
             <div className="relative" ref={searchRef}>
               {/* Mobile (<640px) Search Icon Button (44x44px minimum touch target) */}
