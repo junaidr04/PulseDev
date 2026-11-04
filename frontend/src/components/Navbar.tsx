@@ -145,36 +145,36 @@ export const Navbar: React.FC<NavbarProps> = ({
     <>
       <header className="sticky top-0 z-30 flex h-15 w-full items-center justify-between border-b border-white/[0.07] bg-[#090b10]/90 px-3 sm:px-4 backdrop-blur-xl">
         {/* Left: Unique PulseDev Brand + Context Breadcrumb */}
-        <div className="flex items-center gap-3">
+        <div className="flex min-w-0 flex-1 items-center gap-3">
           <div
             onClick={() => onNavigate('dashboard')}
-            className="cursor-pointer min-h-[44px] flex items-center"
+            className="min-h-[44px] flex shrink-0 cursor-pointer items-center"
           >
             <PulseBrandLogo size="md" />
           </div>
 
           {isAuthenticated && activeProject && (
-            <div className="hidden md:flex items-center gap-2 text-xs text-neutral-500 pl-2 border-l border-white/[0.08]">
+            <div className="hidden min-w-0 items-center gap-2 overflow-hidden border-l border-white/[0.08] pl-2 text-xs text-neutral-500 md:flex">
               <button
                 onClick={() => onNavigate('projects')}
-                className="hover:text-neutral-300 transition-colors cursor-pointer py-1"
+                className="shrink-0 cursor-pointer py-1 transition-colors hover:text-neutral-300"
               >
                 Initiatives
               </button>
               <span className="text-neutral-700">/</span>
               <button
                 onClick={() => onNavigate('board')}
-                className="flex items-center gap-1.5 font-medium text-neutral-200 hover:text-white transition-colors cursor-pointer py-1"
+                className="flex min-w-0 max-w-[min(34vw,360px)] items-center gap-1.5 py-1 font-medium text-neutral-200 transition-colors hover:text-white"
               >
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-                <span>{activeProject.title}</span>
+                <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-400" />
+                <span className="truncate">{activeProject.title}</span>
               </button>
             </div>
           )}
         </div>
 
         {/* Center / Right: Command Palette Search (Desktop input + Mobile <640px icon button), Notifications & User Menu */}
-        <div className="flex items-center gap-2">
+        <div className="flex shrink-0 items-center gap-2">
           {isAuthenticated && (
             <div className="relative" ref={searchRef}>
               {/* Mobile (<640px) Search Icon Button (44x44px minimum touch target) */}
@@ -344,9 +344,9 @@ export const Navbar: React.FC<NavbarProps> = ({
               <button
                 onClick={() => setDropdownOpen(!dropdownOpen)}
                 aria-label="Account menu"
-                className="flex min-h-[44px] min-w-[44px] h-11 items-center justify-center gap-2 rounded-xl border border-white/[0.08] bg-[#11151f] px-2.5 text-left hover:border-white/[0.16] transition-colors cursor-pointer"
+                className="flex h-11 min-h-[44px] min-w-[44px] max-w-[180px] shrink-0 items-center justify-center gap-2 overflow-hidden rounded-xl border border-white/[0.08] bg-[#11151f] px-2.5 text-left transition-colors hover:border-white/[0.16] sm:max-w-[210px]"
               >
-                <div className="relative">
+                <div className="relative shrink-0">
                   <img
                     src={user.avatar}
                     alt={user.name}
@@ -358,18 +358,18 @@ export const Navbar: React.FC<NavbarProps> = ({
                     style={{ backgroundColor: roleTheme.accentHex }}
                   />
                 </div>
-                <div className="hidden sm:flex flex-col leading-tight">
-                  <span className="text-xs font-semibold text-neutral-100">
+                <div className="hidden min-w-0 max-w-[92px] flex-col leading-tight sm:flex">
+                  <span className="max-w-full truncate whitespace-nowrap text-xs font-semibold text-neutral-100">
                     {user.name}
                   </span>
                   <span
-                    className="font-mono text-[9px] font-semibold tracking-wider uppercase"
+                    className="max-w-full truncate whitespace-nowrap font-mono text-[9px] font-semibold uppercase tracking-wider"
                     style={{ color: roleTheme.accentHex }}
                   >
                     {roleTheme.shortBadge}
                   </span>
                 </div>
-                <ChevronDown className="h-3.5 w-3.5 text-neutral-500" />
+                <ChevronDown className="h-3.5 w-3.5 shrink-0 text-neutral-500" />
               </button>
 
               {dropdownOpen && (

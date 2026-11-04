@@ -116,11 +116,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const handleNavItemClick = (id: string) => {
     if (id === 'impersonate') {
-      sessionStorage.setItem('pulsedev_profile_tab', 'directory');
-      window.dispatchEvent(
-        new CustomEvent('pulsedev:profile-tab', { detail: 'directory' })
-      );
-      onNavigate('profile');
+      sessionStorage.setItem('pulsedev_admin_audit_focus', 'impersonation');
+      onNavigate('admin-audit');
       return;
     }
     onNavigate(id);

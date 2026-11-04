@@ -250,12 +250,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsLoading(true);
     try {
       const res = await api.auth.impersonateUser(targetUserId, reason);
-      if (res.success && res.token && res.user) {
-        localStorage.setItem('pulsedev_jwt_token', res.token);
-        saveStoredUser(res.user);
-        setToken(res.token);
-        setUser(res.user);
+      if (!res.success || !res.token || !res.user) {
+        throw new Error(res.message || 'Could not start the impersonation session.');
       }
+      localStorage.setItem('pulsedev_jwt_token', res.token);
+      saveStoredUser(res.user);
+      setToken(res.token);
+      setUser(res.user);
     } finally {
       setIsLoading(false);
     }
@@ -265,12 +266,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsLoading(true);
     try {
       const res = await api.auth.exitImpersonation();
-      if (res.success && res.token && res.user) {
-        localStorage.setItem('pulsedev_jwt_token', res.token);
-        saveStoredUser(res.user);
-        setToken(res.token);
-        setUser(res.user);
+      if (!res.success || !res.token || !res.user) {
+        throw new Error(res.message || 'Could not restore the administrator session.');
       }
+      localStorage.setItem('pulsedev_jwt_token', res.token);
+      saveStoredUser(res.user);
+      setToken(res.token);
+      setUser(res.user);
     } finally {
       setIsLoading(false);
     }

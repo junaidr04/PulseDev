@@ -840,24 +840,21 @@ export const getAuditLogs = async (req: Request, res: Response) => {
         userMap.get(log.performedBy) ||
         allUsers.find((u) => u.name === log.performedByName);
 
-      const validDate = log.createdAt || log.timestamp || new Date().toISOString();
+      const eventDate = log.createdAt || log.timestamp;
 
       return {
         ...log,
-        userId: log.performedBy || matchedUser?._id || '1',
-        userName: log.userName || log.performedByName || matchedUser?.name || 'Alex Chen',
-        userEmail: log.userEmail || matchedUser?.email || 'alex.chen@pulsedev.io',
-        userRole: log.userRole || matchedUser?.role || 'admin',
-        userAvatar:
-          log.userAvatar ||
-          matchedUser?.avatar ||
-          'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=128&h=128&q=80',
-        userDepartment: matchedUser?.department || 'Engineering',
-        details: log.details || 'Authenticated session via JWT',
-        ipAddress: log.ipAddress || '127.0.0.1',
-        userAgent: log.userAgent || 'Chrome 134 / macOS Workspace Client',
-        timestamp: validDate,
-        createdAt: validDate,
+        userId: log.performedBy || matchedUser?._id,
+        userName: log.userName || log.performedByName || matchedUser?.name || 'Unknown user',
+        userEmail: log.userEmail || matchedUser?.email || '',
+        userRole: log.userRole || matchedUser?.role || 'unknown',
+        userAvatar: log.userAvatar || matchedUser?.avatar || '',
+        userDepartment: matchedUser?.department || '',
+        details: log.details || '',
+        ipAddress: log.ipAddress || '',
+        userAgent: log.userAgent || '',
+        timestamp: eventDate,
+        createdAt: eventDate,
       };
     });
 

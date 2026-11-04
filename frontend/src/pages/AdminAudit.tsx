@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
 import {
@@ -30,75 +30,18 @@ interface AuditLogEntry {
   createdAt?: string;
 }
 
-const FALLBACK_AUDIT_LOGS: AuditLogEntry[] = [
-  {
-    _id: 'aud-1',
-    action: 'USER_LOGIN',
-    userId: '1',
-    userName: 'Alex Chen',
-    userEmail: 'alex.chen@pulsedev.io',
-    userRole: 'admin',
-    userDepartment: 'Core Architecture',
-    userAvatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=128&h=128&q=80',
-    details: 'Signed in via JWT password verification',
-    ipAddress: '127.0.0.1',
-    userAgent: 'Chrome 134 / macOS Workspace',
-    createdAt: new Date(Date.now() - 120000).toISOString(),
-  },
-  {
-    _id: 'aud-2',
-    action: 'USER_LOGIN',
-    userId: '2',
-    userName: 'Priya Patel',
-    userEmail: 'priya.patel@pulsedev.io',
-    userRole: 'lead',
-    userDepartment: 'Platform Engineering',
-    userAvatar: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?auto=format&fit=crop&w=128&h=128&q=80',
-    details: 'Authenticated into Sprint 44 workspace',
-    ipAddress: '10.0.4.18',
-    userAgent: 'Firefox 132 / Ubuntu Linux',
-    createdAt: new Date(Date.now() - 1800000).toISOString(),
-  },
-  {
-    _id: 'aud-3',
-    action: 'USER_REGISTER',
-    userId: '4',
-    userName: 'Sophia Laurent',
-    userEmail: 'sophia.laurent@pulsedev.io',
-    userRole: 'qa',
-    userDepartment: 'Quality Engineering',
-    userAvatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=128&h=128&q=80',
-    details: 'New account registered (QA Automation Lead)',
-    ipAddress: '10.0.8.42',
-    userAgent: 'Safari 18 / macOS Sonoma',
-    createdAt: new Date(Date.now() - 5400000).toISOString(),
-  },
-  {
-    _id: 'aud-4',
-    action: 'USER_LOGIN',
-    userId: '3',
-    userName: 'Marcus Vance',
-    userEmail: 'marcus.vance@pulsedev.io',
-    userRole: 'developer',
-    userDepartment: 'Product Engineering',
-    userAvatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=128&h=128&q=80',
-    details: 'Signed in to submit PR for PAY-101',
-    ipAddress: '192.168.1.44',
-    userAgent: 'Chrome 134 / macOS Workspace',
-    createdAt: new Date(Date.now() - 7200000).toISOString(),
-  },
-];
-
 export function formatAuditDateTime(raw?: string): { dateStr: string; timeStr: string } {
-  const parsed = raw ? new Date(raw) : new Date();
-  const validDate = isNaN(parsed.getTime()) ? new Date() : parsed;
+  const parsed = raw ? new Date(raw) : null;
+  if (!parsed || Number.isNaN(parsed.getTime())) {
+    return { dateStr: '-', timeStr: '' };
+  }
   return {
-    dateStr: validDate.toLocaleDateString('en-US', {
+    dateStr: parsed.toLocaleDateString('en-US', {
       month: 'short',
       day: 'numeric',
       year: 'numeric',
     }),
-    timeStr: validDate.toLocaleTimeString('en-US', {
+    timeStr: parsed.toLocaleTimeString('en-US', {
       hour: '2-digit',
       minute: '2-digit',
     }),
@@ -107,12 +50,14 @@ export function formatAuditDateTime(raw?: string): { dateStr: string; timeStr: s
 
 export const AdminAudit: React.FC = () => {
   const { user, startImpersonation } = useAuth();
-  const [logs, setLogs] = useState<AuditLogEntry[]>(FALLBACK_AUDIT_LOGS);
+  const [logs, setLogs] = useState<AuditLogEntry[]>([]);
   const [teamUsers, setTeamUsers] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [filterType, setFilterType] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [statusBanner, setStatusBanner] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const impersonationSectionRef = useRef<HTMLDivElement>(null);
 
   // Explicit Confirmation Modal state for Admin Impersonation
   const [impersonateTarget, setImpersonateTarget] = useState<any | null>(null);
@@ -124,23 +69,38 @@ export const AdminAudit: React.FC = () => {
   const isAdmin = user?.role === 'admin';
 
   const fetchAdminData = async () => {
-    try {
-      setLoading(true);
-      const [logsRes, usersRes] = await Promise.all([
-        api.auth.getAuditLogs(),
-        api.auth.getUsers(),
-      ]);
-      if (logsRes.success && Array.isArray(logsRes.logs) && logsRes.logs.length > 0) {
-        setLogs(logsRes.logs);
-      }
-      if (usersRes.success && Array.isArray(usersRes.users)) {
-        setTeamUsers(usersRes.users);
-      }
-    } catch {
-      // Keep fallback logs
-    } finally {
-      setLoading(false);
+    setLoading(true);
+    setLoadError(null);
+    const [logsResult, usersResult] = await Promise.allSettled([
+      api.auth.getAuditLogs(),
+      api.auth.getUsers(),
+    ]);
+    const errors: string[] = [];
+
+    if (logsResult.status === 'fulfilled' && logsResult.value.success && Array.isArray(logsResult.value.logs)) {
+      setLogs(logsResult.value.logs);
+    } else {
+      setLogs([]);
+      errors.push(
+        logsResult.status === 'rejected'
+          ? logsResult.reason?.message || 'Could not load security logs.'
+          : logsResult.value.message || 'Could not load security logs.'
+      );
     }
+
+    if (usersResult.status === 'fulfilled' && usersResult.value.success && Array.isArray(usersResult.value.users)) {
+      setTeamUsers(usersResult.value.users);
+    } else {
+      setTeamUsers([]);
+      errors.push(
+        usersResult.status === 'rejected'
+          ? usersResult.reason?.message || 'Could not load team members.'
+          : usersResult.value.message || 'Could not load team members.'
+      );
+    }
+
+    setLoadError(errors.length ? errors.join(' ') : null);
+    setLoading(false);
   };
 
   useEffect(() => {
@@ -148,6 +108,14 @@ export const AdminAudit: React.FC = () => {
       fetchAdminData();
     }
   }, [isAdmin]);
+
+  useEffect(() => {
+    if (sessionStorage.getItem('pulsedev_admin_audit_focus') !== 'impersonation') return;
+    sessionStorage.removeItem('pulsedev_admin_audit_focus');
+    requestAnimationFrame(() => {
+      impersonationSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  }, []);
 
   const handleRoleChange = async (targetUserId: string, newRole: string) => {
     try {
@@ -234,6 +202,12 @@ export const AdminAudit: React.FC = () => {
           </button>
         </div>
 
+        {loadError && (
+          <div role="alert" className="rounded-lg border border-rose-500/25 bg-rose-500/10 px-4 py-3 text-xs text-rose-200">
+            {loadError}
+          </div>
+        )}
+
         {statusBanner && (
           <div className="flex items-center justify-between rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-2.5 text-xs text-emerald-300">
             <div className="flex items-center gap-2">
@@ -247,7 +221,11 @@ export const AdminAudit: React.FC = () => {
         )}
 
         {/* Admin User Management & Audited Impersonation Section */}
-        <div className="rounded-xl border border-white/[0.07] bg-[#111317] overflow-hidden">
+        <div
+          ref={impersonationSectionRef}
+          id="admin-impersonation"
+          className="scroll-mt-20 rounded-xl border border-white/[0.07] bg-[#111317] overflow-hidden"
+        >
           <div className="border-b border-white/[0.07] px-5 py-3.5 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Users className="h-4 w-4 text-emerald-400" />
@@ -263,7 +241,11 @@ export const AdminAudit: React.FC = () => {
           </div>
 
           <div className="divide-y divide-white/[0.06]">
-            {teamUsers.map((member) => {
+            {!loading && teamUsers.length === 0 ? (
+              <div className="px-5 py-8 text-center text-xs text-neutral-400">
+                No team members found.
+              </div>
+            ) : teamUsers.map((member) => {
               const isSelf = member._id === user?._id || member.email === user?.email;
               return (
                 <div
@@ -390,7 +372,11 @@ export const AdminAudit: React.FC = () => {
           </div>
 
           <div className="divide-y divide-white/[0.06]">
-            {filteredLogs.length === 0 ? (
+            {loading ? (
+              <div className="py-12 text-center text-xs text-neutral-400">
+                Loading security events...
+              </div>
+            ) : filteredLogs.length === 0 ? (
               <div className="py-12 text-center text-xs text-neutral-500">
                 No matching security events found.
               </div>
@@ -405,20 +391,23 @@ export const AdminAudit: React.FC = () => {
                     className="grid grid-cols-12 items-center px-4 py-3 text-xs hover:bg-white/[0.02] transition-colors"
                   >
                     <div className="col-span-4 flex items-center gap-2.5 pr-3 min-w-0">
-                      <img
-                        src={
-                          log.userAvatar ||
-                          'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=128&h=128&q=80'
-                        }
-                        alt={log.userName || 'User'}
-                        className="h-7 w-7 rounded-full object-cover flex-shrink-0"
-                      />
+                      {log.userAvatar ? (
+                        <img
+                          src={log.userAvatar}
+                          alt={log.userName || 'User'}
+                          className="h-7 w-7 rounded-full object-cover flex-shrink-0"
+                        />
+                      ) : (
+                        <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-white/[0.08] text-[11px] text-neutral-300">
+                          {(log.userName || '?').slice(0, 1).toUpperCase()}
+                        </span>
+                      )}
                       <div className="min-w-0">
                         <div className="font-medium text-neutral-100 truncate">
-                          {log.userName || log.performedByName || 'Alex Chen'}
+                          {log.userName || log.performedByName || 'Unknown user'}
                         </div>
                         <div className="text-[11px] text-neutral-500 truncate">
-                          {log.userEmail || 'alex.chen@pulsedev.io'} ·{' '}
+                          {log.userEmail || 'Email unavailable'} ·{' '}
                           <span className="capitalize">{roleLabel}</span>
                         </div>
                       </div>
@@ -431,9 +420,9 @@ export const AdminAudit: React.FC = () => {
                     </div>
 
                     <div className="col-span-4 pr-3 text-neutral-300 truncate">
-                      <span>{log.details}</span>
+                      <span>{log.details || 'No details recorded.'}</span>
                       <span className="block text-[11px] font-mono text-neutral-500 mt-0.5">
-                        IP: {log.ipAddress || '127.0.0.1'}
+                        IP: {log.ipAddress || 'Not recorded'}
                       </span>
                     </div>
 
@@ -501,6 +490,7 @@ export const AdminAudit: React.FC = () => {
                 <input
                   type="text"
                   required
+                  maxLength={500}
                   value={impersonateReason}
                   onChange={(e) => setImpersonateReason(e.target.value)}
                   className="w-full rounded-lg border border-white/[0.1] bg-[#0b0d13] px-3 py-2 text-white focus:border-amber-400/50 focus:outline-none"
