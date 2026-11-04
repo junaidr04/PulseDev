@@ -1,6 +1,7 @@
 import { Response } from 'express';
 import db from '../config/db.js';
 import { AuthRequest } from '../middleware/authMiddleware.js';
+import { sendServerError } from '../middleware/errorMiddleware.js';
 
 export const getNotifications = async (req: AuthRequest, res: Response) => {
   try {
@@ -25,7 +26,7 @@ export const getNotifications = async (req: AuthRequest, res: Response) => {
       notifications: enriched,
     });
   } catch (error: any) {
-    res.status(500).json({ success: false, message: error.message });
+    sendServerError(res, error, 'Notification list');
   }
 };
 
@@ -49,7 +50,7 @@ export const markNotificationRead = async (req: AuthRequest, res: Response) => {
     const updated = await db.notifications.findByIdAndUpdate(id, { readBy } as any);
     res.json({ success: true, notification: { ...updated, read: true } });
   } catch (error: any) {
-    res.status(500).json({ success: false, message: error.message });
+    sendServerError(res, error, 'Notification update');
   }
 };
 
@@ -74,6 +75,6 @@ export const markAllNotificationsRead = async (req: AuthRequest, res: Response) 
       notifications: updatedList.map((n: any) => ({ ...n, read: true })),
     });
   } catch (error: any) {
-    res.status(500).json({ success: false, message: error.message });
+    sendServerError(res, error, 'Notification read all');
   }
 };

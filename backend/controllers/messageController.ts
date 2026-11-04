@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import db, { MessageDoc } from '../config/db.js';
 import { AuthRequest } from '../middleware/authMiddleware.js';
+import { sendServerError } from '../middleware/errorMiddleware.js';
 
 export const getMessages = async (req: Request, res: Response) => {
   try {
@@ -15,14 +16,47 @@ export const getMessages = async (req: Request, res: Response) => {
       messages: sorted,
     });
   } catch (error: any) {
-    res.status(500).json({ success: false, message: error.message });
+    sendServerError(res, error, 'Message list');
   }
 };
 
 export const createMessage = async (req: AuthRequest, res: Response) => {
   try {
-    const { text = '', channel = 'engineering-sync', attachments = [], replyTo } = req.body;
-    const hasAttachments = Array.isArray(attachments) && attachments.length > 0;
+    const body = req.body && typeof req.body === 'object' ? req.body : {};
+    const { text = '', channel = 'engineering-sync', attachments = [], replyTo } = body;
+    if (typeof text !== 'string' || typeof channel !== 'string' || !channel.trim() || channel.length > 80) {
+      return res.status(400).json({ success: false, message: 'Enter message text and a valid channel.' });
+    }
+    if (text.length > 5000) {
+      return res.status(400).json({ success: false, message: 'Messages must be 5,000 characters or fewer.' });
+    }
+    if (!Array.isArray(attachments) || attachments.length > 3) {
+      return res.status(400).json({ success: false, message: 'Attach up to 3 files per message.' });
+    }
+    const attachmentBytes = attachments.reduce((total: number, attachment: any) => {
+      return total + (typeof attachment?.url === 'string' ? attachment.url.length : 8_000_001);
+    }, 0);
+    const validAttachments = attachments.every((attachment: any) => {
+      if (
+        !attachment ||
+        typeof attachment !== 'object' ||
+        typeof attachment.id !== 'string' || attachment.id.length > 100 ||
+        typeof attachment.name !== 'string' || !attachment.name.trim() || attachment.name.length > 255 ||
+        typeof attachment.size !== 'string' || attachment.size.length > 24 ||
+        typeof attachment.url !== 'string'
+      ) return false;
+
+      const dataUrlPattern = attachment.type === 'image'
+        ? /^data:image\/(?:png|jpe?g|gif|webp);base64,[A-Za-z0-9+/]+={0,2}$/i
+        : attachment.type === 'pdf'
+          ? /^data:application\/pdf;base64,[A-Za-z0-9+/]+={0,2}$/i
+          : null;
+      return Boolean(dataUrlPattern?.test(attachment.url)) && attachment.url.length <= 3_000_000;
+    });
+    if (!validAttachments || attachmentBytes > 8_000_000) {
+      return res.status(400).json({ success: false, message: 'Use PNG, JPEG, GIF, WebP, or PDF files with a combined size under 8 MB.' });
+    }
+    const hasAttachments = attachments.length > 0;
     if ((!text || !text.trim()) && !hasAttachments) {
       return res.status(400).json({ success: false, message: 'Message text or attachment is required' });
     }
@@ -119,6 +153,6 @@ export const createMessage = async (req: AuthRequest, res: Response) => {
       message: newMsg,
     });
   } catch (error: any) {
-    res.status(500).json({ success: false, message: error.message });
+    sendServerError(res, error, 'Message create');
   }
 };

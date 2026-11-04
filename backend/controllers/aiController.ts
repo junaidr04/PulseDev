@@ -29,7 +29,13 @@ const withTimeout = <T>(promise: Promise<T>, ms = 6000): Promise<T> => {
  * @access  Public / Private
  */
 export const aiDeepAudit = async (req: Request, res: Response) => {
-  const { topic = 'SYSTEM_SECURITY', prompt, codeSnippet } = req.body;
+  const body = req.body && typeof req.body === 'object' ? req.body : {};
+  const topic = typeof body.topic === 'string' ? body.topic.trim() : 'SYSTEM_SECURITY';
+  const prompt = typeof body.prompt === 'string' ? body.prompt.trim() : '';
+  const codeSnippet = typeof body.codeSnippet === 'string' ? body.codeSnippet : '';
+  if (topic.length > 120 || prompt.length > 12000 || codeSnippet.length > 30000) {
+    return res.status(400).json({ success: false, message: 'Keep the topic under 120 characters, the prompt under 12,000, and the code sample under 30,000.' });
+  }
 
   const systemPrompt = `You are a Principal Software Engineer and Staff Systems Architect.
 Conduct a rigorous technical architecture review of the enterprise platform.
@@ -98,7 +104,15 @@ ${codeSnippet ? `Code Snippet:\n\`\`\`ts\n${codeSnippet}\n\`\`\`` : 'Audit syste
  * @access  Private
  */
 export const aiGenerateSprint = async (req: Request, res: Response) => {
-  const { projectTitle, projectDescription, techStack = 'Fullstack' } = req.body;
+  const body = req.body && typeof req.body === 'object' ? req.body : {};
+  const { projectTitle, projectDescription } = body;
+  const techStack = typeof body.techStack === 'string' ? body.techStack : 'Fullstack';
+  if (
+    typeof projectTitle !== 'string' || !projectTitle.trim() || projectTitle.length > 160 ||
+    typeof projectDescription !== 'string' || projectDescription.length > 8000 || techStack.length > 200
+  ) {
+    return res.status(400).json({ success: false, message: 'Add a project title, a description under 8,000 characters, and a tech stack under 200 characters.' });
+  }
 
   const prompt = `Generate 3 enterprise-grade backlog tasks for a project titled: "${projectTitle}".
 Project Description: "${projectDescription}".
@@ -190,7 +204,11 @@ Return ONLY valid JSON matching this schema:
  * @access  Public
  */
 export const aiInterviewQA = async (req: Request, res: Response) => {
-  const { category = 'database' } = req.body;
+  const body = req.body && typeof req.body === 'object' ? req.body : {};
+  const category = typeof body.category === 'string' ? body.category.trim() : 'database';
+  if (!category || category.length > 120) {
+    return res.status(400).json({ success: false, message: 'Enter a topic under 120 characters.' });
+  }
 
   const prompt = `Give me 1 technical engineering interview question on "${category}" with a senior staff-level model answer.
 Explain:

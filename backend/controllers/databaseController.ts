@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import db from '../config/db.js';
 import { DatabaseQueryValidationError } from '../config/mongoCollection.js';
+import { sendServerError } from '../middleware/errorMiddleware.js';
 
 const queryCollections = {
   users: db.users,
@@ -85,7 +86,7 @@ export const executeMongoQuery = async (req: Request, res: Response) => {
     if (error instanceof DatabaseQueryValidationError) {
       return res.status(400).json({ success: false, message: error.message });
     }
-    res.status(500).json({ success: false, message: error.message });
+    sendServerError(res, error, 'Database query');
   }
 };
 
@@ -102,7 +103,7 @@ export const getDatabaseStats = async (req: Request, res: Response) => {
       stats,
     });
   } catch (error: any) {
-    res.status(500).json({ success: false, message: error.message });
+    sendServerError(res, error, 'Database stats');
   }
 };
 
@@ -130,6 +131,6 @@ export const resetAndSeedDatabase = async (req: Request, res: Response) => {
       stats,
     });
   } catch (error: any) {
-    res.status(500).json({ success: false, message: error.message });
+    sendServerError(res, error, 'Database reset');
   }
 };

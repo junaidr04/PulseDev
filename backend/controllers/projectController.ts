@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import db, { generateObjectId } from '../config/db.js';
 import { AuthRequest } from '../middleware/authMiddleware.js';
+import { sendServerError } from '../middleware/errorMiddleware.js';
 
 /**
  * @desc    Get all projects with task counts and lead details
@@ -36,7 +37,7 @@ export const getProjects = async (req: Request, res: Response) => {
       projects: enriched,
     });
   } catch (error: any) {
-    res.status(500).json({ success: false, message: error.message });
+    sendServerError(res, error, 'Project list');
   }
 };
 
@@ -54,27 +55,53 @@ export const createProject = async (req: AuthRequest, res: Response) => {
       });
     }
 
-    const { title, key, description, category, tags = [] } = req.body;
+    if (req.user.role !== 'admin' && req.user.role !== 'lead') {
+      return res.status(403).json({
+        success: false,
+        message: 'Only Admins and Leads can create projects.',
+      });
+    }
 
-    if (!title || !key || !description) {
-      return res.status(400).json({ success: false, message: 'Title, key, and description are required.' });
+    const body = req.body && typeof req.body === 'object' ? req.body : {};
+    const { title, key, description, category, tags = [] } = body;
+
+    if (
+      typeof title !== 'string' || !title.trim() || title.trim().length > 120 ||
+      typeof key !== 'string' || !/^[a-zA-Z][a-zA-Z0-9]{1,9}$/.test(key.trim()) ||
+      typeof description !== 'string' || !description.trim() || description.trim().length > 2000
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: 'Enter a project title (up to 120 characters), a 2–10 character project key, and a description (up to 2,000 characters).',
+      });
+    }
+
+    if (
+      !Array.isArray(tags) || tags.length > 12 ||
+      tags.some((tag) => typeof tag !== 'string' || !tag.trim() || tag.trim().length > 32)
+    ) {
+      return res.status(400).json({ success: false, message: 'Project tags must be a list of up to 12 short labels.' });
+    }
+
+    if (category !== undefined && (typeof category !== 'string' || category.trim().length > 64)) {
+      return res.status(400).json({ success: false, message: 'Project categories must be 64 characters or fewer.' });
     }
 
     const upperKey = key.toUpperCase().trim();
     const existingKey = await db.projects.findOne({ key: upperKey });
     if (existingKey) {
-      return res.status(400).json({ success: false, message: `Project key '${upperKey}' already exists.` });
+      return res.status(409).json({ success: false, message: `Project key '${upperKey}' already exists.` });
     }
 
     const project = await db.projects.create({
-      title,
+      title: title.trim(),
       key: upperKey,
       description,
       leadId: req.user ? req.user._id : '66a1bf9823e4d5c6b7a89001',
       category: category || 'Fullstack Platform',
       status: 'active',
       progress: 0,
-      tags: Array.isArray(tags) ? tags : tags.split(',').map((t: string) => t.trim()),
+      tags: tags.map((tag) => tag.trim()),
     });
 
     await db.auditLogs.create({
@@ -102,7 +129,10 @@ export const createProject = async (req: AuthRequest, res: Response) => {
       project,
     });
   } catch (error: any) {
-    res.status(500).json({ success: false, message: error.message });
+    if (error?.code === 11000) {
+      return res.status(409).json({ success: false, message: 'A project with that key already exists.' });
+    }
+    sendServerError(res, error, 'Project create');
   }
 };
 
@@ -140,7 +170,7 @@ export const getProjectTasks = async (req: Request, res: Response) => {
       tasks: populated,
     });
   } catch (error: any) {
-    res.status(500).json({ success: false, message: error.message });
+    sendServerError(res, error, 'Project tasks');
   }
 };
 
@@ -155,6 +185,7 @@ export const createTask = async (req: AuthRequest, res: Response) => {
       return res.status(401).json({ success: false, message: 'Authentication required.' });
     }
 
+    const body = req.body && typeof req.body === 'object' ? req.body : {};
     const {
       projectId,
       title,
@@ -165,10 +196,32 @@ export const createTask = async (req: AuthRequest, res: Response) => {
       estimateHours = 4,
       tags = [],
       overrideQa,
-    } = req.body;
+    } = body;
 
     if (!projectId || !title) {
       return res.status(400).json({ success: false, message: 'ProjectId and title are required.' });
+    }
+    if (typeof projectId !== 'string' || typeof title !== 'string' || !title.trim() || title.trim().length > 120) {
+      return res.status(400).json({ success: false, message: 'Enter a project and a title up to 120 characters.' });
+    }
+    if (typeof description !== 'undefined' && (typeof description !== 'string' || description.length > 5000)) {
+      return res.status(400).json({ success: false, message: 'Issue descriptions must be 5,000 characters or fewer.' });
+    }
+    if (!['low', 'medium', 'high', 'critical'].includes(priority)) {
+      return res.status(400).json({ success: false, message: 'Choose a valid issue priority.' });
+    }
+    if (!Number.isFinite(Number(estimateHours)) || Number(estimateHours) < 0 || Number(estimateHours) > 500) {
+      return res.status(400).json({ success: false, message: 'Estimate must be between 0 and 500 hours.' });
+    }
+    if (
+      !Array.isArray(tags) || tags.length > 12 ||
+      tags.some((tag) => typeof tag !== 'string' || tag.trim().length > 32)
+    ) {
+      return res.status(400).json({ success: false, message: 'Issue tags must be a list of up to 12 short labels.' });
+    }
+    const project = await db.projects.findById(projectId);
+    if (!project) {
+      return res.status(404).json({ success: false, message: 'Project not found.' });
     }
     if (overrideQa !== undefined && typeof overrideQa !== 'boolean') {
       return res.status(400).json({ success: false, message: 'The QA override confirmation is invalid.' });
@@ -208,14 +261,14 @@ export const createTask = async (req: AuthRequest, res: Response) => {
 
     const task = await db.tasks.create({
       projectId,
-      title,
+      title: title.trim(),
       description: description || '',
       column: req.user.role === 'admin' ? column : 'backlog',
       priority,
       assigneeId: verifiedAssigneeId,
       reporterId: req.user._id,
       estimateHours: Number(estimateHours) || 4,
-      tags: Array.isArray(tags) ? tags : [],
+      tags: tags.map((tag: string) => tag.trim()).filter(Boolean),
       comments: [],
     });
 
@@ -246,7 +299,7 @@ export const createTask = async (req: AuthRequest, res: Response) => {
       task,
     });
   } catch (error: any) {
-    res.status(500).json({ success: false, message: error.message });
+    sendServerError(res, error, 'Task create');
   }
 };
 
@@ -299,6 +352,18 @@ export const updateTask = async (req: AuthRequest, res: Response) => {
     }
     if (updates.tags !== undefined && (!Array.isArray(updates.tags) || updates.tags.some((tag: unknown) => typeof tag !== 'string'))) {
       return res.status(400).json({ success: false, message: 'Issue scope tags must be a list of text values.' });
+    }
+    if (updates.title !== undefined && (typeof updates.title !== 'string' || !updates.title.trim() || updates.title.trim().length > 120)) {
+      return res.status(400).json({ success: false, message: 'Issue titles must be between 1 and 120 characters.' });
+    }
+    if (updates.description !== undefined && (typeof updates.description !== 'string' || updates.description.length > 5000)) {
+      return res.status(400).json({ success: false, message: 'Issue descriptions must be 5,000 characters or fewer.' });
+    }
+    if (updates.tags !== undefined && (updates.tags.length > 12 || updates.tags.some((tag: string) => !tag.trim() || tag.trim().length > 32))) {
+      return res.status(400).json({ success: false, message: 'Issue tags must be a list of up to 12 short labels.' });
+    }
+    if (updates.estimateHours !== undefined && (typeof updates.estimateHours !== 'number' || !Number.isFinite(updates.estimateHours) || updates.estimateHours < 0 || updates.estimateHours > 500)) {
+      return res.status(400).json({ success: false, message: 'Estimate must be between 0 and 500 hours.' });
     }
 
     if (userRole === 'developer' && task.assigneeId !== userId) {
@@ -418,7 +483,7 @@ export const updateTask = async (req: AuthRequest, res: Response) => {
       task: updated,
     });
   } catch (error: any) {
-    res.status(500).json({ success: false, message: error.message });
+    sendServerError(res, error, 'Task update');
   }
 };
 
@@ -442,7 +507,8 @@ export const rejectTask = async (req: AuthRequest, res: Response) => {
       return res.status(400).json({ success: false, message: 'Only issues in QA review can be rejected.' });
     }
 
-    const reason = typeof req.body.reason === 'string' ? req.body.reason.trim() : '';
+    const body = req.body && typeof req.body === 'object' ? req.body : {};
+    const reason = typeof body.reason === 'string' ? body.reason.trim() : '';
     if (!reason) {
       return res.status(400).json({ success: false, message: 'Enter a reason before rejecting this issue.' });
     }
@@ -451,7 +517,7 @@ export const rejectTask = async (req: AuthRequest, res: Response) => {
     }
 
     const validCategories = ['Functional bug', 'Regression', 'Performance', 'Other'] as const;
-    const category = req.body.category;
+    const category = body.category;
     if (category !== undefined && category !== '' && !validCategories.includes(category)) {
       return res.status(400).json({ success: false, message: 'Choose a valid rejection category.' });
     }
@@ -520,7 +586,7 @@ export const rejectTask = async (req: AuthRequest, res: Response) => {
       task: updated,
     });
   } catch (error: any) {
-    res.status(500).json({ success: false, message: error.message });
+    sendServerError(res, error, 'Task reject');
   }
 };
 
@@ -581,7 +647,7 @@ export const approveTask = async (req: AuthRequest, res: Response) => {
 
     res.json({ success: true, message: 'Issue approved and marked as done.', task: updated });
   } catch (error: any) {
-    res.status(500).json({ success: false, message: error.message });
+    sendServerError(res, error, 'Task approve');
   }
 };
 
@@ -634,7 +700,7 @@ export const deleteTask = async (req: AuthRequest, res: Response) => {
       id,
     });
   } catch (error: any) {
-    res.status(500).json({ success: false, message: error.message });
+    sendServerError(res, error, 'Task delete');
   }
 };
 
@@ -646,10 +712,14 @@ export const deleteTask = async (req: AuthRequest, res: Response) => {
 export const addTaskComment = async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
-    const { text } = req.body;
+    const body = req.body && typeof req.body === 'object' ? req.body : {};
+    const { text } = body;
 
-    if (!text || !text.trim()) {
+    if (typeof text !== 'string' || !text.trim()) {
       return res.status(400).json({ success: false, message: 'Comment text cannot be empty.' });
+    }
+    if (text.trim().length > 2000) {
+      return res.status(400).json({ success: false, message: 'Comments must be 2,000 characters or fewer.' });
     }
 
     const task = await db.tasks.findById(id);
@@ -686,7 +756,7 @@ export const addTaskComment = async (req: AuthRequest, res: Response) => {
       task: updated,
     });
   } catch (error: any) {
-    res.status(500).json({ success: false, message: error.message });
+    sendServerError(res, error, 'Task comment');
   }
 };
 
@@ -736,6 +806,6 @@ export const getAnalytics = async (req: Request, res: Response) => {
       priorityDistribution: priorityStats,
     });
   } catch (error: any) {
-    res.status(500).json({ success: false, message: error.message });
+    sendServerError(res, error, 'Project analytics');
   }
 };

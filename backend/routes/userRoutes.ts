@@ -18,13 +18,14 @@ import {
   inspectToken,
 } from '../controllers/userController.js';
 import { protect, authorize, requirePermission } from '../middleware/authMiddleware.js';
+import { limitLoginAttempts } from '../middleware/loginRateLimit.js';
 
 const router = Router();
 
 // Public authentication & password recovery endpoints
 router.get('/personas', getLoginPersonas);
 router.post('/register', registerUser);
-router.post('/login', loginUser);
+router.post('/login', limitLoginAttempts, loginUser);
 
 // Authenticated session, password change & token endpoints
 router.post('/change-password', protect, changePassword);

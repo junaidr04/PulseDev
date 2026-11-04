@@ -9,25 +9,41 @@ export const notFound = (req: Request, res: Response, next: NextFunction) => {
   next(error);
 };
 
+/** Log internal failures for operators while returning a safe, predictable API response. */
+export const sendServerError = (res: Response, error: unknown, context: string) => {
+  console.error(`[${context}]`, error);
+  return res.status(500).json({
+    success: false,
+    message: 'Something went wrong. Please try again.',
+  });
+};
+
 /**
  * Centralized Production Error Handler
  * Standardizes API error responses across the entire fullstack system.
  */
 export const errorHandler = (err: any, req: Request, res: Response, next: NextFunction) => {
+  if (res.headersSent) return next(err);
   let statusCode = res.statusCode === 200 ? 500 : res.statusCode;
-  let message = err.message || 'Internal Server Error';
+  let message = statusCode >= 500
+    ? 'Something went wrong. Please try again.'
+    : err.message || 'The request could not be completed.';
+
+  if (err instanceof SyntaxError && 'body' in err) {
+    statusCode = 400;
+    message = 'The request body is not valid JSON.';
+  }
 
   // Handle Mongoose Bad ObjectId (CastError)
   if (err.name === 'CastError' && err.kind === 'ObjectId') {
     statusCode = 404;
-    message = `MongoDB Resource not found with ID of: ${err.value}`;
+    message = 'The requested resource could not be found.';
   }
 
   // Handle Mongoose Duplicate Key Error (Code 11000)
   if (err.code === 11000) {
-    statusCode = 400;
-    const field = Object.keys(err.keyValue || {})[0] || 'field';
-    message = `Duplicate field value entered for '${field}'. Must be unique.`;
+    statusCode = 409;
+    message = 'A record with that value already exists.';
   }
 
   // Handle Mongoose Validation Errors
@@ -48,9 +64,9 @@ export const errorHandler = (err: any, req: Request, res: Response, next: NextFu
     success: false,
     statusCode,
     message,
-    path: req.originalUrl,
+    path: req.path,
     method: req.method,
     timestamp: new Date().toISOString(),
-    stack: process.env.NODE_ENV === 'production' ? null : err.stack,
+    stack: null,
   });
 };

@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import db from '../config/db.js';
+import { sendServerError } from '../middleware/errorMiddleware.js';
 import {
   JWT_SECRET,
   AuthRequest,
@@ -51,29 +52,35 @@ const setSessionCookie = (res: Response, token: string, maxAgeMs = 7 * 24 * 60 *
  */
 export const registerUser = async (req: Request, res: Response) => {
   try {
+    const body = req.body && typeof req.body === 'object' ? req.body : {};
     const {
-      name,
-      email,
+      name: rawName,
+      email: rawEmail,
       password,
       department = 'Engineering',
       title = 'Software Engineer',
-    } = req.body;
+    } = body;
 
-    if (!name || !email || !password) {
+    const name = typeof rawName === 'string' ? rawName.trim() : '';
+    const email = typeof rawEmail === 'string' ? rawEmail.trim().toLowerCase() : '';
+    if (!name || !email || typeof password !== 'string') {
       return res.status(400).json({
         success: false,
         message: 'Validation failed: Name, email, and password are required fields.',
       });
     }
 
-    if (password.length < 6) {
+    if (name.length > 80 || email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return res.status(400).json({ success: false, message: 'Enter a valid name and email address.' });
+    }
+    if (password.length < 6 || password.length > 128) {
       return res.status(400).json({
         success: false,
-        message: 'Password must be at least 6 characters long.',
+        message: 'Password must be between 6 and 128 characters long.',
       });
     }
 
-    const existing = await db.users.findOne({ email: email.toLowerCase() });
+    const existing = await db.users.findOne({ email });
     if (existing) {
       return res.status(400).json({
         success: false,
@@ -86,7 +93,7 @@ export const registerUser = async (req: Request, res: Response) => {
 
     const newUser = await db.users.create({
       name,
-      email: email.toLowerCase(),
+      email,
       password: hashedPassword,
       role: 'developer',
       avatar: `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(name)}`,
@@ -129,10 +136,7 @@ export const registerUser = async (req: Request, res: Response) => {
       },
     });
   } catch (error: any) {
-    res.status(500).json({
-      success: false,
-      message: error.message || 'Server error during user registration.',
-    });
+    sendServerError(res, error, 'User register');
   }
 };
 
@@ -143,27 +147,21 @@ export const registerUser = async (req: Request, res: Response) => {
  */
 export const loginUser = async (req: Request, res: Response) => {
   try {
-    const { email, password } = req.body;
+    const email = typeof req.body?.email === 'string' ? req.body.email.trim().toLowerCase() : '';
+    const password = typeof req.body?.password === 'string' ? req.body.password : '';
 
-    if (!email || !password) {
+    if (!email || !password || email.length > 254 || password.length > 128) {
       return res.status(400).json({
         success: false,
-        message: 'Please provide both email and password.',
+        message: 'Enter a valid email address and password.',
       });
     }
 
-    let user = await db.users.findOne({ email: email.toLowerCase() });
-    if (
-      !user &&
-      (email.toLowerCase() === 'jordan.blake@pulsedev.io' ||
-        email.toLowerCase() === 'interview.demo@pulsedev.io')
-    ) {
-      user = await db.users.findOne({ role: 'guest' });
-    }
+    const user = await db.users.findOne({ email });
     if (!user) {
       return res.status(401).json({
         success: false,
-        message: 'Invalid credentials. User not found with specified email.',
+        message: 'Email or password is incorrect.',
       });
     }
 
@@ -171,7 +169,7 @@ export const loginUser = async (req: Request, res: Response) => {
     if (!isMatch) {
       return res.status(401).json({
         success: false,
-        message: 'Invalid password for this account. Please check your password or use "Forgot password?" to reset it.',
+        message: 'Email or password is incorrect.',
       });
     }
 
@@ -210,10 +208,7 @@ export const loginUser = async (req: Request, res: Response) => {
       },
     });
   } catch (error: any) {
-    res.status(500).json({
-      success: false,
-      message: error.message || 'Server error during user login.',
-    });
+    sendServerError(res, error, 'User login');
   }
 };
 
@@ -233,7 +228,7 @@ export const getLoginPersonas = async (_req: Request, res: Response) => {
       'sophia.laurent@pulsedev.io',
       'jordan.blake@pulsedev.io',
     ];
-    const sorted = [...users].sort((a, b) => {
+    const sorted = users.filter((user) => coreOrder.includes(user.email.toLowerCase())).sort((a, b) => {
       const idxA = coreOrder.indexOf(a.email.toLowerCase());
       const idxB = coreOrder.indexOf(b.email.toLowerCase());
       if (idxA !== -1 && idxB !== -1) return idxA - idxB;
@@ -257,7 +252,7 @@ export const getLoginPersonas = async (_req: Request, res: Response) => {
       personas,
     });
   } catch (error: any) {
-    res.status(500).json({ success: false, message: error.message });
+    sendServerError(res, error, 'Login personas');
   }
 };
 
@@ -272,18 +267,19 @@ export const changePassword = async (req: AuthRequest, res: Response) => {
       return res.status(401).json({ success: false, message: 'Authentication required.' });
     }
 
-    const { currentPassword, newPassword } = req.body;
-    if (!currentPassword || !newPassword) {
+    const body = req.body && typeof req.body === 'object' ? req.body : {};
+    const { currentPassword, newPassword } = body;
+    if (typeof currentPassword !== 'string' || !currentPassword || typeof newPassword !== 'string' || !newPassword) {
       return res.status(400).json({
         success: false,
         message: 'Please provide both your current password and new password.',
       });
     }
 
-    if (String(newPassword).trim().length < 6) {
+    if (newPassword.trim().length < 6 || newPassword.length > 128) {
       return res.status(400).json({
         success: false,
-        message: 'New password must be at least 6 characters long.',
+        message: 'New password must be between 6 and 128 characters long.',
       });
     }
 
@@ -297,7 +293,7 @@ export const changePassword = async (req: AuthRequest, res: Response) => {
     if (!isCurrentValid) {
       return res.status(400).json({
         success: false,
-        message: 'Current password is incorrect. If you forgot it, use the Reset Password option.',
+        message: 'Current password is incorrect. Double-check it and try again.',
       });
     }
 
@@ -333,10 +329,7 @@ export const changePassword = async (req: AuthRequest, res: Response) => {
       message: 'Your password has been changed successfully.',
     });
   } catch (error: any) {
-    res.status(500).json({
-      success: false,
-      message: error.message || 'Failed to change password.',
-    });
+    sendServerError(res, error, 'Password change');
   }
 };
 
@@ -369,7 +362,7 @@ export const logoutUser = async (req: AuthRequest, res: Response) => {
       message: 'Session invalidated and token revoked.',
     });
   } catch (error: any) {
-    res.status(500).json({ success: false, message: error.message });
+    sendServerError(res, error, 'Session logout');
   }
 };
 
@@ -398,16 +391,20 @@ export const getUserProfile = async (req: AuthRequest, res: Response) => {
  * @access  Private (team.read)
  */
 export const getUsers = async (req: AuthRequest, res: Response) => {
-  const users = await db.users.find();
-  const safeUsers = users.map(({ password, ...u }) => ({
-    ...u,
-    permissions: getPermissionsForRole(u.role),
-  }));
-  res.json({
-    success: true,
-    count: safeUsers.length,
-    users: safeUsers,
-  });
+  try {
+    const users = await db.users.find();
+    const safeUsers = users.map(({ password, ...u }) => ({
+      ...u,
+      permissions: getPermissionsForRole(u.role),
+    }));
+    res.json({
+      success: true,
+      count: safeUsers.length,
+      users: safeUsers,
+    });
+  } catch (error) {
+    sendServerError(res, error, 'Team directory');
+  }
 };
 
 /**
@@ -446,7 +443,7 @@ export const getTeamMemberProfile = async (req: AuthRequest, res: Response) => {
       viewedBy: req.user?._id,
     });
   } catch (error: any) {
-    res.status(500).json({ success: false, message: error.message });
+    sendServerError(res, error, 'Team member profile');
   }
 };
 
@@ -487,21 +484,19 @@ export const updateUserProfile = async (req: AuthRequest, res: Response) => {
     }
 
     // Never allow role, email, _id, or password mutation through profile update
+    const body = req.body && typeof req.body === 'object' ? req.body : {};
     const allowedUpdates: Record<string, any> = {};
-    if (typeof req.body.name === 'string' && req.body.name.trim()) {
-      allowedUpdates.name = req.body.name.trim();
+    if (typeof body.name === 'string' && body.name.trim() && body.name.trim().length <= 80) {
+      allowedUpdates.name = body.name.trim();
     }
-    if (typeof req.body.title === 'string' && req.body.title.trim()) {
-      allowedUpdates.title = req.body.title.trim();
+    if (typeof body.title === 'string' && body.title.trim() && body.title.trim().length <= 120) {
+      allowedUpdates.title = body.title.trim();
     }
-    if (typeof req.body.department === 'string' && req.body.department.trim()) {
-      allowedUpdates.department = req.body.department.trim();
+    if (typeof body.department === 'string' && body.department.trim() && body.department.trim().length <= 80) {
+      allowedUpdates.department = body.department.trim();
     }
-    if (
-      typeof req.body.status === 'string' &&
-      ['online', 'away', 'busy', 'offline'].includes(req.body.status)
-    ) {
-      allowedUpdates.status = req.body.status;
+    if (typeof body.status === 'string' && ['online', 'away', 'busy', 'offline'].includes(body.status)) {
+      allowedUpdates.status = body.status;
     }
 
     const updated = await db.users.findByIdAndUpdate(targetId, allowedUpdates, { new: true });
@@ -520,7 +515,7 @@ export const updateUserProfile = async (req: AuthRequest, res: Response) => {
       },
     });
   } catch (error: any) {
-    res.status(500).json({ success: false, message: error.message });
+    sendServerError(res, error, 'Profile update');
   }
 };
 
@@ -531,23 +526,36 @@ export const updateUserProfile = async (req: AuthRequest, res: Response) => {
  */
 export const adminCreateUser = async (req: AuthRequest, res: Response) => {
   try {
+    const body = req.body && typeof req.body === 'object' ? req.body : {};
     const {
-      name,
-      email,
-      password = 'password123',
+      name: rawName,
+      email: rawEmail,
+      password,
       role = 'developer',
       title = 'Software Engineer',
       department = 'Engineering',
-    } = req.body;
+    } = body;
+    const name = typeof rawName === 'string' ? rawName.trim() : '';
+    const email = typeof rawEmail === 'string' ? rawEmail.trim().toLowerCase() : '';
+    const validRoles = ['admin', 'lead', 'developer', 'qa', 'guest'];
 
-    if (!name || !email) {
+    if (!name || !email || name.length > 80 || email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       return res.status(400).json({
         success: false,
-        message: 'Name and email are required to create a user.',
+        message: 'Enter a valid name and email address.',
       });
     }
+    if (typeof password !== 'string' || password.length < 8 || password.length > 128) {
+      return res.status(400).json({ success: false, message: 'Set an initial password between 8 and 128 characters.' });
+    }
+    if (typeof role !== 'string' || !validRoles.includes(role)) {
+      return res.status(400).json({ success: false, message: 'Choose a valid workspace role.' });
+    }
+    if (typeof title !== 'string' || title.trim().length > 120 || typeof department !== 'string' || department.trim().length > 80) {
+      return res.status(400).json({ success: false, message: 'Title and department must be short text values.' });
+    }
 
-    const existing = await db.users.findOne({ email: email.toLowerCase() });
+    const existing = await db.users.findOne({ email });
     if (existing) {
       return res.status(400).json({
         success: false,
@@ -559,13 +567,13 @@ export const adminCreateUser = async (req: AuthRequest, res: Response) => {
     const hashedPassword = await bcrypt.hash(password, salt);
 
     const created = await db.users.create({
-      name: name.trim(),
-      email: email.toLowerCase().trim(),
+      name,
+      email,
       password: hashedPassword,
       role: role as any,
       avatar: `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(name)}`,
-      title,
-      department,
+      title: title.trim(),
+      department: department.trim(),
       status: 'online',
     });
 
@@ -585,7 +593,7 @@ export const adminCreateUser = async (req: AuthRequest, res: Response) => {
       user: safeUser,
     });
   } catch (error: any) {
-    res.status(500).json({ success: false, message: error.message });
+    sendServerError(res, error, 'Admin user create');
   }
 };
 
@@ -597,7 +605,8 @@ export const adminCreateUser = async (req: AuthRequest, res: Response) => {
 export const updateUserRole = async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
-    const { role } = req.body;
+    const body = req.body && typeof req.body === 'object' ? req.body : {};
+    const { role } = body;
     const validRoles = ['admin', 'lead', 'developer', 'qa', 'guest'];
 
     if (!role || !validRoles.includes(role)) {
@@ -635,7 +644,7 @@ export const updateUserRole = async (req: AuthRequest, res: Response) => {
       },
     });
   } catch (error: any) {
-    res.status(500).json({ success: false, message: error.message });
+    sendServerError(res, error, 'User role update');
   }
 };
 
@@ -678,7 +687,7 @@ export const deleteUser = async (req: AuthRequest, res: Response) => {
       id,
     });
   } catch (error: any) {
-    res.status(500).json({ success: false, message: error.message });
+    sendServerError(res, error, 'User delete');
   }
 };
 
@@ -754,7 +763,7 @@ export const impersonateUser = async (req: AuthRequest, res: Response) => {
       },
     });
   } catch (error: any) {
-    res.status(500).json({ success: false, message: error.message });
+    sendServerError(res, error, 'User impersonation');
   }
 };
 
@@ -811,7 +820,7 @@ export const exitImpersonation = async (req: AuthRequest, res: Response) => {
       },
     });
   } catch (error: any) {
-    res.status(500).json({ success: false, message: error.message });
+    sendServerError(res, error, 'Impersonation exit');
   }
 };
 
@@ -858,7 +867,7 @@ export const getAuditLogs = async (req: Request, res: Response) => {
       logs: enrichedLogs,
     });
   } catch (error: any) {
-    res.status(500).json({ success: false, message: error.message });
+    sendServerError(res, error, 'Audit log list');
   }
 };
 
@@ -867,8 +876,8 @@ export const getAuditLogs = async (req: Request, res: Response) => {
  * @route   POST /api/users/token-inspect
  * @access  Private
  */
-export const inspectToken = async (req: Request, res: Response) => {
-  const token = req.body.token || req.headers.authorization?.replace('Bearer ', '');
+export const inspectToken = async (req: AuthRequest, res: Response) => {
+  const token = req.token;
 
   if (!token) {
     return res.status(400).json({ success: false, message: 'No token provided to inspect.' });
@@ -896,11 +905,10 @@ export const inspectToken = async (req: Request, res: Response) => {
 
     res.json({
       success: true,
-      token,
       structure: {
         header,
         payload,
-        signature: parts[2].substring(0, 16) + '...[REDACTED_HMAC_SHA256]',
+        signature: '[REDACTED]',
         issuedAt: new Date(payload.iat * 1000).toISOString(),
         expiresAt: new Date(payload.exp * 1000).toISOString(),
         isExpired: Date.now() >= payload.exp * 1000,
@@ -908,6 +916,6 @@ export const inspectToken = async (req: Request, res: Response) => {
       },
     });
   } catch (error: any) {
-    res.status(400).json({ success: false, message: 'Failed to decode token: ' + error.message });
+    res.status(400).json({ success: false, message: 'The current session token could not be inspected.' });
   }
 };
