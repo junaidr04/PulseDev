@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useProjects } from '../context/ProjectContext';
+import { X } from 'lucide-react';
 import { FlowButton } from './ui/FlowButton';
-import Modal from './ui/Modal';
 
 
 interface CreateProjectModalProps {
@@ -14,10 +14,12 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({ isOpen, 
   const [title, setTitle] = useState('');
   const [key, setKey] = useState('');
   const [description, setDescription] = useState('');
-  const [category, setCategory] = useState<string>('Product');
+  const [category, setCategory] = useState<string>('Fullstack Platform');
   const [tags, setTags] = useState('');
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  if (!isOpen) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,20 +40,37 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({ isOpen, 
       setDescription('');
       onClose();
     } catch (err: any) {
-      setErrorMsg(err?.message || 'Could not create project.');
+      setErrorMsg(err?.message || 'Could not create initiative.');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <Modal
-      open={isOpen}
-      title="New project"
-      description="Add a project to the workspace."
-      onClose={onClose}
+    <div
+      className="fixed inset-0 z-50 flex min-h-full items-center justify-center overflow-y-auto bg-black/70 backdrop-blur-md p-4"
+      onClick={onClose}
     >
-        <form onSubmit={handleSubmit} className="space-y-4 text-xs">
+      <div
+        className="relative my-auto max-h-[calc(100dvh-2rem)] w-full max-w-lg overflow-y-auto rounded-2xl border border-white/[0.12] bg-[#11151f] p-6 shadow-[0_24px_64px_rgba(0,0,0,0.85),0_0_40px_rgba(16,185,129,0.12)] animate-modal-pop"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-emerald-400 via-teal-300 to-cyan-400" />
+        <div className="flex items-center justify-between border-b border-white/[0.07] pb-3.5">
+          <div>
+            <h3 className="text-sm font-semibold text-white">New Initiative</h3>
+            <p className="text-xs text-neutral-500 mt-0.5">Create a new engineering workspace initiative</p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="text-neutral-500 hover:text-white p-1 cursor-pointer"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="mt-4 space-y-4 text-xs">
           {errorMsg && (
             <div className="rounded-lg border border-rose-500/30 bg-rose-500/10 p-2.5 text-rose-300">
               {errorMsg}
@@ -59,11 +78,11 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({ isOpen, 
           )}
 
           <div>
-            <label className="block font-medium text-neutral-300">Project name</label>
+            <label className="block font-medium text-neutral-300">Initiative Name</label>
             <input
               type="text"
               required
-              placeholder="e.g. Password reset flow"
+              placeholder="e.g. Distributed Rate Limiter v2"
               value={title}
               onChange={(e) => {
                 setTitle(e.target.value);
@@ -97,9 +116,10 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({ isOpen, 
                 onChange={(e) => setCategory(e.target.value)}
                 className="mt-1.5 w-full rounded-lg border border-white/[0.08] bg-[#0e1014] px-2.5 py-2 text-white focus:outline-none"
               >
-                <option value="Product">Product</option>
-                <option value="Engineering">Engineering</option>
-                <option value="Infrastructure">Infrastructure</option>
+                <option value="Backend Architecture">Backend Architecture</option>
+                <option value="Security & Auth">Security & Auth</option>
+                <option value="DevOps & Cloud">DevOps & Cloud</option>
+                <option value="Fullstack Platform">Fullstack Platform</option>
               </select>
             </div>
           </div>
@@ -109,7 +129,7 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({ isOpen, 
             <textarea
               rows={3}
               required
-              placeholder="What are you building?"
+              placeholder="Scope, goals, and key deliverables..."
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               className="mt-1.5 w-full rounded-lg border border-white/[0.08] bg-[#0e1014] px-3 py-2 text-white placeholder-neutral-500 focus:outline-none"
@@ -117,7 +137,7 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({ isOpen, 
           </div>
 
           <div>
-            <label className="block font-medium text-neutral-300">Tags</label>
+            <label className="block font-medium text-neutral-300">Stack / Labels</label>
             <input
               type="text"
               placeholder="Redis, Node.js, PostgreSQL"
@@ -140,11 +160,12 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({ isOpen, 
               disabled={loading}
               size="sm"
               variant="primary"
-              text={loading ? 'Creating...' : 'Create project'}
+              text={loading ? 'Creating...' : 'Create initiative'}
             />
           </div>
         </form>
-    </Modal>
+      </div>
+    </div>
   );
 };
 

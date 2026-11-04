@@ -1,10 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import {
   LayoutGrid,
   Kanban,
   FolderGit2,
-  ListTodo,
+  Sparkles,
   Plus,
   Users,
   ShieldCheck,
@@ -14,12 +13,28 @@ import {
 } from 'lucide-react';
 import { useProjects } from '../context/ProjectContext';
 import { useAuth } from '../context/AuthContext';
+import { getRoleTheme } from '../theme/roleTheme';
 
 interface SidebarProps {
   currentRoute: string;
   onNavigate: (route: string) => void;
   onOpenNewProject: () => void;
 }
+
+const INITIATIVE_DOT_STYLES: Record<string, { base: string; active: string }> = {
+  PAY: {
+    base: 'bg-emerald-400',
+    active: 'bg-emerald-400 ring-4 ring-emerald-400/25 shadow-[0_0_8px_#10b981]',
+  },
+  MOB: {
+    base: 'bg-amber-400',
+    active: 'bg-amber-400 ring-4 ring-amber-400/25 shadow-[0_0_8px_#f59e0b]',
+  },
+  OPS: {
+    base: 'bg-blue-400',
+    active: 'bg-blue-400 ring-4 ring-blue-400/25 shadow-[0_0_8px_#3b82f6]',
+  },
+};
 
 export const Sidebar: React.FC<SidebarProps> = ({
   currentRoute,
@@ -29,15 +44,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const { projects, activeProject, setActiveProject } = useProjects();
   const { user } = useAuth();
   const [collapsed, setCollapsed] = useState(false);
-  const reducedMotion = useReducedMotion();
 
   const tabRefs = useRef<Record<string, HTMLButtonElement | null>>({});
-  const projectRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+  const initiativeRefs = useRef<Record<string, HTMLButtonElement | null>>({});
 
   const isAdmin = user?.role === 'admin';
   const canCreateProject = !!user;
+  const roleTheme = getRoleTheme(user?.role);
 
-  // Keep the selected project in view when the user changes projects.
+  // Auto-scroll active tab and active initiative chip into view on load and on switch
   useEffect(() => {
     const activeTabEl = tabRefs.current[currentRoute];
     if (activeTabEl) {
@@ -51,9 +66,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   useEffect(() => {
     if (activeProject?._id) {
-      const activeProjectEl = projectRefs.current[activeProject._id];
-      if (activeProjectEl) {
-        activeProjectEl.scrollIntoView({
+      const activeInitEl = initiativeRefs.current[activeProject._id];
+      if (activeInitEl) {
+        activeInitEl.scrollIntoView({
           behavior: 'smooth',
           block: 'nearest',
           inline: 'center',
@@ -66,12 +81,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
     id: string;
     label: string;
     icon: any;
+    shortcut: string;
+    badge?: string;
   }> = [
-    { id: 'dashboard', label: 'Overview', icon: LayoutGrid },
-    { id: 'board', label: 'Sprint board', icon: Kanban },
-    { id: 'projects', label: 'Projects', icon: FolderGit2 },
-    { id: 'ai', label: 'Planning tools', icon: ListTodo },
-    { id: 'profile', label: 'Team', icon: Users },
+    { id: 'dashboard', label: 'Overview', icon: LayoutGrid, shortcut: 'G O' },
+    { id: 'board', label: 'Active Sprint', icon: Kanban, shortcut: 'G S' },
+    {
+      id: 'projects',
+      label: 'Initiatives',
+      icon: FolderGit2,
+      shortcut: 'G I',
+      badge: `${projects.length}`,
+    },
+    { id: 'ai', label: 'Planning Assistant', icon: Sparkles, shortcut: 'G A' },
+    { id: 'profile', label: 'Team Members', icon: Users, shortcut: 'G T' },
   ];
 
   if (isAdmin) {
@@ -80,18 +103,24 @@ export const Sidebar: React.FC<SidebarProps> = ({
         id: 'admin-audit',
         label: 'Security & Logs',
         icon: ShieldCheck,
+        shortcut: 'G L',
       },
       {
         id: 'impersonate',
-        label: 'Users & access',
+        label: 'User Impersonation',
         icon: UserCheck,
+        shortcut: 'G U',
       }
     );
   }
 
   const handleNavItemClick = (id: string) => {
     if (id === 'impersonate') {
-      onNavigate('admin-audit');
+      sessionStorage.setItem('pulsedev_profile_tab', 'directory');
+      window.dispatchEvent(
+        new CustomEvent('pulsedev:profile-tab', { detail: 'directory' })
+      );
+      onNavigate('profile');
       return;
     }
     onNavigate(id);
@@ -103,7 +132,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <div className="flex md:hidden flex-col border-b border-white/[0.07] bg-[#0a0d14] select-none">
         {/* Row 1: Primary Navigation Tabs (Hidden scrollbar + Right-edge fade + >=44px touch targets) */}
         <div className="relative">
-          <div className="flex items-center gap-1.5 overflow-x-auto px-3 py-1.5 no-scrollbar">
+          <div className="flex items-center gap-1.5 overflow-x-auto px-3 pr-10 py-1.5 no-scrollbar scroll-fade-right">
             {navItems.map((item) => {
               const Icon = item.icon;
               const isActive = currentRoute === item.id;
@@ -114,43 +143,46 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     tabRefs.current[item.id] = el;
                   }}
                   onClick={() => handleNavItemClick(item.id)}
-                  className={`relative flex min-h-[44px] items-center gap-1.5 rounded-xl border px-3.5 py-2 text-xs whitespace-nowrap flex-shrink-0 transition-colors cursor-pointer ${
+                  className={`relative flex min-h-[44px] items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs whitespace-nowrap flex-shrink-0 transition-all cursor-pointer ${
                     isActive
-                      ? 'border-transparent text-white font-semibold'
-                      : 'border-transparent text-neutral-300 hover:bg-white/[0.03] hover:text-white'
+                      ? 'bg-white/[0.09] text-white font-semibold border border-white/[0.2] shadow-sm'
+                      : 'bg-white/[0.03] text-neutral-300 border border-white/[0.06] hover:text-white'
                   }`}
                 >
-                  {isActive && (
-                    <motion.span
-                      layoutId="mobile-nav-active"
-                      transition={{ duration: reducedMotion ? 0 : 0.18, ease: 'easeOut' }}
-                      className="absolute inset-0 rounded-xl border border-white/[0.14] bg-white/[0.06]"
-                    />
-                  )}
                   <Icon
-                    className="relative z-10 h-3.5 w-3.5"
-                    style={{ color: isActive ? '#83a897' : undefined }}
+                    className="h-3.5 w-3.5"
+                    style={{ color: isActive ? roleTheme.accentHex : undefined }}
                   />
-                  <span className="relative z-10">{item.label}</span>
+                  <span>{item.label}</span>
+                  {item.badge && (
+                    <span className="ml-0.5 rounded bg-white/[0.08] px-1.5 py-0.5 font-mono text-[10px] text-neutral-200">
+                      {item.badge}
+                    </span>
+                  )}
                 </button>
               );
             })}
           </div>
+          <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-9 bg-gradient-to-l from-[#0a0d14] via-[#0a0d14]/70 to-transparent" />
         </div>
 
-        {/* Mobile project shortcuts */}
+        {/* Row 2: Mobile Initiatives Quick Bar (Hidden scrollbar + Right-edge fade + >=44px touch targets) */}
         <div className="relative border-t border-white/[0.05] bg-[#080a10]">
-          <div className="flex items-center gap-1.5 overflow-x-auto px-3 py-1 no-scrollbar">
+          <div className="flex items-center gap-1.5 overflow-x-auto px-3 pr-10 py-1 no-scrollbar scroll-fade-right">
             <span className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400 flex-shrink-0 mr-1">
-              Projects:
+              Initiatives:
             </span>
             {projects.map((p) => {
               const isSelected = activeProject?._id === p._id;
+              const dotConfig = INITIATIVE_DOT_STYLES[p.key] || {
+                base: 'bg-emerald-400',
+                active: 'bg-emerald-400 ring-2 ring-emerald-400/30',
+              };
               return (
                 <button
                   key={p._id}
                   ref={(el) => {
-                    projectRefs.current[p._id] = el;
+                    initiativeRefs.current[p._id] = el;
                   }}
                   onClick={() => {
                     setActiveProject(p);
@@ -164,8 +196,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       : 'text-neutral-300 hover:text-white border border-transparent'
                   }`}
                 >
+                  <span
+                    className={`h-2 w-2 rounded-full flex-shrink-0 ${
+                      isSelected ? dotConfig.active : dotConfig.base
+                    }`}
+                  />
                   <span className="font-mono text-[11px] text-neutral-200">{p.key}</span>
                   <span className="max-w-[130px] truncate">{p.title}</span>
+                  <span className="font-mono text-[11px] text-emerald-400">{p.progress}%</span>
                 </button>
               );
             })}
@@ -173,22 +211,23 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <button
                 onClick={onOpenNewProject}
                 className="flex min-h-[44px] min-w-[44px] h-11 w-11 items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.04] text-emerald-400 flex-shrink-0 cursor-pointer"
-                title="New project"
-                aria-label="New project"
+                title="New initiative"
+                aria-label="New initiative"
               >
                 <Plus className="h-4 w-4" />
               </button>
             )}
           </div>
+          <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-9 bg-gradient-to-l from-[#080a10] via-[#080a10]/70 to-transparent" />
         </div>
       </div>
 
       {/* Desktop Left Sidebar (md and up) */}
-      <motion.aside
+      <aside
         aria-label="Workspace navigation"
-        animate={{ width: collapsed ? 64 : 240 }}
-        transition={{ duration: reducedMotion ? 0 : 0.2, ease: 'easeOut' }}
-        className="hidden shrink-0 flex-col select-none border-r border-white/[0.07] bg-[#0a0d14] md:flex"
+        className={`hidden md:flex flex-col border-r border-white/[0.07] bg-[#0a0d14] select-none transition-all duration-200 ${
+          collapsed ? 'w-16' : 'w-60'
+        }`}
       >
       {/* Primary Navigation */}
       <div className="px-2.5 pt-4 pb-2">
@@ -200,45 +239,42 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <button
                 key={item.id}
                 onClick={() => handleNavItemClick(item.id)}
-                title={collapsed ? item.label : undefined}
+                title={collapsed ? `${item.label} (${item.shortcut})` : undefined}
                 className={`group relative flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-[13px] transition-all duration-150 cursor-pointer ${
                   isActive
-                    ? 'text-white font-medium'
+                    ? 'bg-white/[0.07] text-white font-medium'
                     : 'text-neutral-400 hover:bg-white/[0.035] hover:text-neutral-200'
                 }`}
               >
+                {/* Active Indicator Bar */}
                 {isActive && (
-                  <motion.span
-                    layoutId="desktop-nav-active"
-                    transition={{ duration: reducedMotion ? 0 : 0.18, ease: 'easeOut' }}
-                    className="absolute inset-0 rounded-lg border border-white/[0.1] bg-white/[0.05]"
+                  <span
+                    className="absolute left-0 top-1.5 bottom-1.5 w-1 rounded-r"
+                    style={{ backgroundImage: roleTheme.gradientCss }}
                   />
                 )}
 
                 <div className={`flex items-center gap-2.5 truncate ${collapsed ? 'mx-auto' : ''}`}>
                   <Icon
-                    className={`relative z-10 h-4 w-4 flex-shrink-0 transition-colors ${
+                    className={`h-4 w-4 flex-shrink-0 transition-colors ${
                       isActive ? '' : 'text-neutral-500 group-hover:text-neutral-300'
                     }`}
-                    style={{ color: isActive ? '#83a897' : undefined }}
+                    style={{ color: isActive ? roleTheme.accentHex : undefined }}
                   />
-                  <AnimatePresence initial={false}>
-                    {!collapsed && (
-                      <motion.span
-                        initial={reducedMotion ? false : { opacity: 0, x: -4 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        exit={{ opacity: 0, x: -4 }}
-                        transition={{ duration: reducedMotion ? 0 : 0.15, ease: 'easeOut' }}
-                        className="relative z-10 truncate"
-                      >
-                        {item.label}
-                      </motion.span>
-                    )}
-                  </AnimatePresence>
+                  {!collapsed && <span className="truncate">{item.label}</span>}
                 </div>
 
                 {!collapsed && (
                   <div className="flex items-center gap-1.5">
+                    {item.badge ? (
+                      <span className="font-mono text-[11px] text-neutral-500">
+                        {item.badge}
+                      </span>
+                    ) : (
+                      <span className="opacity-0 group-hover:opacity-100 font-mono text-[10px] text-neutral-600 transition-opacity">
+                        {item.shortcut}
+                      </span>
+                    )}
                   </div>
                 )}
               </button>
@@ -247,18 +283,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </nav>
       </div>
 
-      {/* Project list */}
+      {/* Initiatives List */}
       <div className="mt-3 flex-1 overflow-y-auto px-2.5 py-2 border-t border-white/[0.06]">
         {!collapsed && (
           <div className="flex items-center justify-between px-2.5 mb-2">
             <span className="text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
-              Projects
+              Initiatives
             </span>
             {canCreateProject && (
               <button
                 onClick={onOpenNewProject}
                 className="flex h-5 w-5 items-center justify-center rounded text-neutral-400 hover:bg-white/[0.08] hover:text-white transition-colors cursor-pointer"
-                title="New project"
+                title="New initiative"
               >
                 <Plus className="h-3.5 w-3.5" />
               </button>
@@ -269,6 +305,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <div className="space-y-1">
           {projects.map((p) => {
             const isSelected = activeProject?._id === p._id;
+            const dotConfig = INITIATIVE_DOT_STYLES[p.key] || {
+              base: 'bg-emerald-400',
+              active: 'bg-emerald-400 ring-4 ring-emerald-400/25',
+            };
+
             return (
               <button
                 key={p._id}
@@ -278,16 +319,30 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     onNavigate('board');
                   }
                 }}
-                title={collapsed ? p.title : undefined}
+                title={collapsed ? `${p.title} (${p.progress}%)` : undefined}
                 className={`group relative flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-left text-xs transition-all cursor-pointer ${
                   isSelected
-                    ? 'bg-white/[0.08] text-white font-semibold border border-white/[0.12]'
+                    ? 'bg-white/[0.08] text-white font-semibold border border-white/[0.12] shadow-sm'
                     : 'text-neutral-300 hover:bg-white/[0.04] hover:text-white border border-transparent'
                 }`}
               >
                 <div className={`flex items-center gap-2.5 truncate ${collapsed ? 'mx-auto' : ''}`}>
+                  <span
+                    className={`h-2 w-2 rounded-full flex-shrink-0 transition-all ${
+                      isSelected ? dotConfig.active : dotConfig.base
+                    }`}
+                  />
                   {!collapsed && <span className="truncate">{p.title}</span>}
                 </div>
+                {!collapsed && (
+                  <span
+                    className={`font-mono text-[11px] ml-2 ${
+                      isSelected ? 'text-white font-semibold' : 'text-neutral-400'
+                    }`}
+                  >
+                    {p.progress}%
+                  </span>
+                )}
               </button>
             );
           })}
@@ -296,6 +351,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       {/* Footer Collapse Toggle (WCAG AA High Contrast) */}
       <div className="border-t border-white/[0.08] p-2.5 flex items-center justify-between">
+        {!collapsed && (
+          <div className="flex items-center gap-2 px-1">
+            <span className="h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_6px_#10b981]" />
+            <span className="text-xs font-medium text-neutral-200 truncate">
+              Cycle 44 · Active
+            </span>
+          </div>
+        )}
         <button
           onClick={() => setCollapsed(!collapsed)}
           className={`flex h-7 w-7 items-center justify-center rounded-lg text-neutral-400 hover:bg-white/[0.06] hover:text-white transition-colors cursor-pointer ${
@@ -311,7 +374,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           )}
         </button>
       </div>
-    </motion.aside>
+    </aside>
     </>
   );
 };

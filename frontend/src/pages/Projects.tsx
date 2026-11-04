@@ -18,6 +18,9 @@ export const Projects: React.FC<ProjectsProps> = ({ onNavigate, onOpenNewProject
   const { projects, activeProject, setActiveProject } = useProjects();
   const { user } = useAuth();
 
+  const role = user?.role || 'developer';
+  const isAdmin = role === 'admin';
+
   const handleSelectSprint = (project: Project) => {
     setActiveProject(project);
     onNavigate('board');
@@ -29,16 +32,16 @@ export const Projects: React.FC<ProjectsProps> = ({ onNavigate, onOpenNewProject
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between border-b border-white/[0.07] pb-5">
           <div>
             <h1 className="text-xl font-semibold text-white tracking-tight">
-              Projects
+              Initiatives
             </h1>
             <p className="text-[13px] text-neutral-400 mt-1">
-              Projects the team is working on.
+              Long-term product roadmaps, platform migrations, and active engineering cycles.
             </p>
           </div>
 
           {user ? (
             <FlowButton
-              text="New project"
+              text="New initiative"
               size="sm"
               variant="primary"
               onClick={onOpenNewProject}
@@ -46,7 +49,7 @@ export const Projects: React.FC<ProjectsProps> = ({ onNavigate, onOpenNewProject
           ) : (
             <div className="flex items-center gap-1.5 text-xs text-neutral-500">
               <Lock className="h-3.5 w-3.5" />
-              <span>Sign in to create projects</span>
+              <span>Sign in to create initiatives</span>
             </div>
           )}
         </div>
@@ -69,7 +72,9 @@ export const Projects: React.FC<ProjectsProps> = ({ onNavigate, onOpenNewProject
                     <span className="font-mono text-xs text-neutral-400">
                       {proj.key}
                     </span>
-                    <span className="text-[11px] text-neutral-500">{proj.category}</span>
+                    <span className="text-[11px] text-neutral-500">
+                      {proj.category}
+                    </span>
                   </div>
 
                   <h3 className="mt-2.5 text-base font-semibold text-white group-hover:text-neutral-100">
@@ -85,7 +90,7 @@ export const Projects: React.FC<ProjectsProps> = ({ onNavigate, onOpenNewProject
                       {proj.tags.map((t, i) => (
                         <span
                           key={i}
-                          className="rounded bg-white/[0.04] px-2 py-0.5 text-[10px] text-neutral-400"
+                          className="rounded bg-white/[0.04] px-2 py-0.5 font-mono text-[10px] text-neutral-400"
                         >
                           {t}
                         </span>
@@ -94,15 +99,23 @@ export const Projects: React.FC<ProjectsProps> = ({ onNavigate, onOpenNewProject
                   )}
                 </div>
 
-                <div className="mt-6 flex items-center justify-between border-t border-white/[0.06] pt-4 text-xs">
-                  {proj.totalTasks !== undefined && proj.completedTasks !== undefined && (
+                <div className="mt-6 pt-4 border-t border-white/[0.06] space-y-3">
+                  <div>
+                    <div className="flex justify-between text-xs mb-1.5">
+                      <span className="text-neutral-500">Completion</span>
+                      <span className="font-mono text-neutral-300">{proj.progress}%</span>
+                    </div>
+                    <div className="h-1 w-full rounded-full bg-white/[0.06] overflow-hidden">
+                      <div
+                        className="h-full bg-indigo-400 transition-all duration-500"
+                        style={{ width: `${proj.progress}%` }}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between text-xs pt-1">
                     <span className="text-neutral-500">
-                      {proj.completedTasks} of {proj.totalTasks} issues done
-                    </span>
-                  )}
-                  <div className="flex items-center justify-between">
-                    <span className="text-neutral-500">
-                      {isCurrent ? 'Selected project' : 'Open the sprint board'}
+                      {isCurrent ? 'Selected workspace' : 'Click to open board'}
                     </span>
                     <span className="flex items-center gap-1 font-medium text-neutral-300 group-hover:text-white">
                       <span>Open</span>

@@ -1,7 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
-import Avatar from '../components/ui/Avatar';
-import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import api from '../services/api';
 import {
   Shield,
@@ -26,32 +24,40 @@ const FALLBACK_TEAM = [
     name: 'Alex Chen',
     email: 'alex.chen@pulsedev.io',
     role: 'admin',
-    title: 'Admin',
-    department: 'Engineering',
+    title: 'Principal Systems Architect',
+    department: 'Platform Engineering',
+    status: 'online',
+    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=128&h=128&q=80',
   },
   {
     _id: '66a1bf9823e4d5c6b7a89002',
     name: 'Priya Patel',
     email: 'priya.patel@pulsedev.io',
     role: 'lead',
-    title: 'Team lead',
-    department: 'Engineering',
+    title: 'Staff Backend Lead',
+    department: 'Cloud Services',
+    status: 'online',
+    avatar: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?auto=format&fit=crop&w=128&h=128&q=80',
   },
   {
     _id: '66a1bf9823e4d5c6b7a89003',
     name: 'Marcus Vance',
     email: 'marcus.vance@pulsedev.io',
     role: 'developer',
-    title: 'Software developer',
-    department: 'Engineering',
+    title: 'Senior Engineer',
+    department: 'Product Features',
+    status: 'away',
+    avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=128&h=128&q=80',
   },
   {
     _id: '66a1bf9823e4d5c6b7a89004',
     name: 'Sophia Laurent',
     email: 'sophia.laurent@pulsedev.io',
     role: 'qa',
-    title: 'QA engineer',
+    title: 'Staff QA Automation Lead',
     department: 'Quality Assurance',
+    status: 'online',
+    avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=128&h=128&q=80',
   },
   {
     _id: '66a1bf9823e4d5c6b7a89005',
@@ -60,6 +66,8 @@ const FALLBACK_TEAM = [
     role: 'guest',
     title: 'Product Manager',
     department: 'Product Strategy',
+    status: 'online',
+    avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&w=128&h=128&q=80',
   },
 ];
 
@@ -77,7 +85,6 @@ interface ProfileProps {
 
 export const Profile: React.FC<ProfileProps> = ({ onNavigate }) => {
   const { user, updateOwnProfile, logout, changePassword } = useAuth();
-  const reducedMotion = useReducedMotion();
   const [teamMembers, setTeamMembers] = useState<any[]>(FALLBACK_TEAM);
   const [activeTab, setActiveTab] = useState<'directory' | 'settings'>(() => {
     const saved = sessionStorage.getItem('pulsedev_profile_tab');
@@ -287,7 +294,14 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigate }) => {
             </div>
 
             <div className="flex items-center gap-3.5">
-              <Avatar name={user?.name || 'Member'} className="h-14 w-14 rounded-xl text-lg" />
+              <img
+                src={
+                  user?.avatar ||
+                  'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=128&h=128&q=80'
+                }
+                alt={user?.name || 'Member'}
+                className="h-14 w-14 rounded-xl object-cover border border-white/[0.1]"
+              />
               <div className="min-w-0">
                 <h3 className="text-base font-semibold text-white truncate">
                   {user?.name || 'Alex Chen'}
@@ -386,7 +400,11 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigate }) => {
                         }`}
                       >
                         <div className="flex items-center gap-3 min-w-0">
-                          <Avatar name={member.name} className="h-9 w-9 text-xs" />
+                          <img
+                            src={member.avatar}
+                            alt={member.name}
+                            className="h-9 w-9 rounded-full object-cover flex-shrink-0 border border-white/[0.08]"
+                          />
                           <div className="min-w-0">
                             <div className="flex items-center gap-2">
                               <span className="text-[13px] font-medium text-neutral-100 truncate">
@@ -561,7 +579,7 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigate }) => {
                       <button
                         type="submit"
                         disabled={savingSettings}
-                        className="rounded-md bg-emerald-700 px-4 py-2 text-xs font-medium text-white hover:bg-emerald-600 transition-colors cursor-pointer"
+                        className="rounded-lg bg-gradient-to-r from-emerald-400 to-cyan-400 px-4 py-2 text-xs font-semibold text-[#090b10] hover:opacity-95 transition-opacity cursor-pointer"
                       >
                         {savingSettings ? 'Saving...' : 'Save profile changes'}
                       </button>
@@ -696,7 +714,7 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigate }) => {
                       <button
                         type="submit"
                         disabled={savingPassword}
-                        className="rounded-md bg-emerald-700 px-4 py-2 text-xs font-medium text-white hover:bg-emerald-600 transition-colors cursor-pointer"
+                        className="rounded-lg bg-gradient-to-r from-emerald-400 to-cyan-400 px-4 py-2 text-xs font-semibold text-[#090b10] hover:opacity-95 transition-opacity cursor-pointer"
                       >
                         {savingPassword ? 'Updating...' : 'Update Password'}
                       </button>
@@ -707,19 +725,15 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigate }) => {
             )}
 
             {/* Selected Team Member Public Profile Drawer/Card */}
-            <AnimatePresence initial={false}>
             {selectedMemberProfile && (
-              <motion.div
-                key={selectedMemberProfile._id || selectedMemberProfile.email}
-                initial={reducedMotion ? false : { opacity: 0, y: 6 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={reducedMotion ? { opacity: 0 } : { opacity: 0, y: 4 }}
-                transition={{ duration: reducedMotion ? 0 : 0.18, ease: 'easeOut' }}
-                className="rounded-lg border border-white/[0.12] bg-[#11151f] p-5"
-              >
+              <div className="rounded-xl border border-emerald-500/25 bg-[#11151f] p-5 shadow-xl animate-modal-pop">
                 <div className="flex items-start justify-between border-b border-white/[0.07] pb-4">
                   <div className="flex items-center gap-3.5">
-                    <Avatar name={selectedMemberProfile.name} className="h-12 w-12 rounded-xl text-sm" />
+                    <img
+                      src={selectedMemberProfile.avatar}
+                      alt={selectedMemberProfile.name}
+                      className="h-12 w-12 rounded-xl object-cover border border-white/[0.12]"
+                    />
                     <div>
                       <div className="flex items-center gap-2">
                         <h4 className="text-sm font-semibold text-white">
@@ -741,7 +755,7 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigate }) => {
                       <button
                         type="button"
                         onClick={() => handleSwitchToMemberLogin(selectedMemberProfile.email)}
-                        className="inline-flex items-center gap-1.5 rounded-md bg-emerald-700 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-600 transition-colors cursor-pointer"
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-emerald-400 to-cyan-400 px-3 py-1.5 text-xs font-semibold text-[#090b10] hover:opacity-95 transition-opacity cursor-pointer"
                       >
                         <LogIn className="h-3.5 w-3.5" />
                         <span>Log in as {selectedMemberProfile.name.split(' ')[0]}</span>
@@ -811,9 +825,8 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigate }) => {
                       </div>
                     </div>
                   )}
-              </motion.div>
+              </div>
             )}
-            </AnimatePresence>
           </div>
         </div>
       </div>

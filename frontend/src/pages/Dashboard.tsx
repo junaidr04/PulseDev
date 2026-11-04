@@ -29,24 +29,51 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
   return (
     <div
-      className="flex-1 overflow-y-auto bg-[#090b10] px-4 sm:px-6 pt-6 pb-24 text-[#f3f5f8]"
+      className="flex-1 overflow-y-auto bg-[#090b10] role-ambient-grid px-4 sm:px-6 pt-6 pb-24 text-[#f3f5f8] relative"
+      style={{ backgroundImage: roleTheme.radialBackdropCss }}
     >
       <div className="mx-auto max-w-6xl space-y-6">
         {/* Shared Personalized Role Header */}
         <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between border-b border-white/[0.07] pb-5">
-          <div className="min-w-0 space-y-1">
-            <h1 className="text-2xl font-semibold text-white">
-              {greeting}, {firstName}
+          <div className="space-y-1.5 min-w-0">
+            <div className="flex flex-wrap items-center gap-2 text-xs text-neutral-400">
+              <span
+                className="inline-block h-2 w-2 rounded-full"
+                style={{
+                  backgroundColor: roleTheme.accentHex,
+                  boxShadow: `0 0 10px ${roleTheme.accentHex}`,
+                }}
+              />
+              <span className="font-mono font-semibold text-white">
+                {roleTheme.cockpitTitle}
+              </span>
+              <span aria-hidden="true">·</span>
+              <span>{user?.title || roleTheme.roleTitle}</span>
+              <span aria-hidden="true">·</span>
+              <span className="text-neutral-300">
+                {activeProject?.key || 'PAY'} — {activeProject?.title || 'Global Checkout & Payment Engine v2'}
+              </span>
+            </div>
+
+            <h1 className="text-2xl sm:text-[28px] font-bold tracking-[-0.03em] text-white">
+              {greeting},{' '}
+              <span
+                className="bg-clip-text text-transparent"
+                style={{ backgroundImage: roleTheme.gradientCss }}
+              >
+                {firstName}
+              </span>
             </h1>
-            <p className="text-sm text-neutral-400">
-              {activeProject ? `Working on ${activeProject.title}.` : roleTheme.tagline}
+
+            <p className="text-xs sm:text-[13px] text-neutral-400">
+              {roleTheme.tagline}
             </p>
           </div>
 
           {/* Right Header Controls: FlowButtons with morphing pill geometry & sliding arrows */}
           <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 flex-shrink-0">
             <FlowButton
-              text="Team members"
+              text="Switch Role"
               size="sm"
               variant="secondary"
               onClick={() => {
@@ -56,7 +83,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 );
                 onNavigate('profile');
               }}
-              title="Open the team directory"
+              title="Switch between the 5 role accounts in Team Directory"
             />
 
             <FlowButton
@@ -67,7 +94,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
             />
 
             <FlowButton
-              text="New project"
+              text="New Initiative"
               size="sm"
               variant="secondary"
               onClick={onOpenNewProject}
@@ -83,7 +110,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
           </div>
         </div>
 
-        {/* Dashboard content depends on the signed-in role. */}
+        {/* Dynamic Role-Specific Cockpit (Admin, Lead, Developer, QA, or PM) */}
         <RoleDashboard
           user={user}
           projects={projects}
