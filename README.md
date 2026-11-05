@@ -1,264 +1,304 @@
 # PulseDev
 
-**A role-aware workspace for planning sprints, reviewing work, and keeping a product team in sync.**
+A role-based workspace for planning sprints, reviewing work and keeping a small product team in sync.
 
-PulseDev brings an initiative overview, sprint board, QA workflow, team chat, notifications, and an AI-assisted planning workspace into one web application. It is built to make day-to-day delivery visible while keeping important actions—especially QA approval and issue ownership—behind clear, server-enforced permissions.
+PulseDev puts an initiative overview, a sprint board, a QA review step, team chat, notifications and an AI planning assistant in one web app. The main idea is that important actions, like QA approval and issue ownership, are checked on the server and not just hidden in the UI.
 
-> **Live demo:**
-> <!-- Add the deployed application URL here when it is ready. -->
+**Live demo:** https://pulsedev-jack.onrender.com
 
-## Why PulseDev
+The demo runs on a free Render instance. If nobody has opened it for a while it goes to sleep, so the first load can take up to a minute.
 
-Teams often spread planning, delivery status, review feedback, and team conversations across separate tools. PulseDev puts those workflows in one place and gives each role a focused view of the work:
+## What is PulseDev?
 
-- Developers can see and advance their own assigned issues.
-- Leads can coordinate assignments and sprint priorities.
-- QA owns the pass/reject decision at the review stage.
-- Product managers can refine issue priority and scope without changing delivery status.
-- Administrators can oversee the workspace and perform audited QA overrides when necessary.
+PulseDev is a web app where a small software team keeps track of its work in one place.
 
-The project is also a practical demonstration of a full-stack TypeScript application: a React single-page app, an Express API, role-aware UI, protected server routes, persistent local data, and an optional generative-AI integration.
+Most teams end up with tasks in one tool, review feedback in another, and questions scattered across chat. Nobody is sure who is working on what, or whether a finished task was actually checked. PulseDev puts all of that on one screen and gives every person a view that matches their job.
 
-## Product tour
+### Who uses it
 
-### Workspace overview
+| Person | What they do in PulseDev |
+| --- | --- |
+| Team lead | Creates issues, assigns them, sets priorities, keeps the sprint moving |
+| Developer | Sees the issues assigned to them, works on them, sends them for review |
+| QA tester | Checks finished work and either passes it or sends it back with a reason |
+| Product manager | Adjusts priority and scope of issues |
+| Administrator | Looks after users and the audit log, and can override a step when really needed |
 
-The dashboard presents a role-specific view of current work, project progress, and relevant team actions. The shared navigation connects the dashboard to initiatives, the sprint board, planning tools, chat, notifications, and profile settings.
+### A task from start to finish
 
-### Initiatives and sprint planning
+Here is a made-up example, so you can see how the app works in practice.
 
-Initiatives group related work. Each project can have a name, key, description, category, tags, and progress information. Select an initiative to view its issues on the Active Sprint board.
+The team is fixing a bug: the checkout total is rounded wrongly.
 
-### Active Sprint board
+1. **The lead creates an issue.** Title: "Fix rounding in checkout total". Priority: high. Assigned to Marcus, a developer.
+2. **Marcus finds it.** It shows up under "Assigned to me" on the sprint board. He moves it from Backlog to In Progress and leaves a comment about what he found.
+3. **Marcus finishes and moves it to In Review.** Now it is waiting for QA.
+4. **Sophia, the QA tester, checks it.** She finds that totals with discounts are still wrong. She rejects the issue and has to write a reason. The issue goes back to In Progress, keeps her feedback and the history of the rejection, and the people involved are notified.
+5. **Marcus fixes it and sends it back to review.** Sophia checks again and passes it. The issue moves to Done.
+6. **The overview updates.** The counts on the dashboard come from the real data, so the lead sees the sprint progress without asking anyone.
 
-Issues move through four workflow states:
+Now the part that matters most. Imagine Marcus gets impatient and tries to mark his own issue as Done without waiting for QA. The app says no and explains why: developers cannot ship an issue. This is checked on the server, not only in the buttons on screen, so it cannot be skipped by tampering with the page.
+
+There is one exception. An administrator can ship an issue without a QA pass, but only after confirming a warning, and the action is written to the audit log with their name.
+
+### Other things you can do
+
+- **Chat with the team** in the app. Reply to a message, mention someone, attach a file.
+- **Get notifications** about activity that concerns you, and see what you have already read.
+- **Use the Planning Assistant.** For example, type "customers should be able to reset their password by email" and it drafts a list of tasks. It can also review an architecture or security idea and give you an interview question with an answer. Treat the output as a draft, not as a final answer.
+- **Check the audit log** (admin only) to see who signed in, moved an issue or approved work, and when.
+- **Use it on a phone.** The menu becomes a drawer, the board scrolls one column at a time, and long tables turn into stacked entries.
+
+### How it works behind the scenes
+
+In plain words:
+
+1. You open the website. It is a single-page app built with React.
+2. You sign in. The server checks your email and password and gives your browser a signed token that proves who you are.
+3. Every time you do something (open a project, move an issue, send a message), the browser sends the request to the server together with that token.
+4. The server checks two things: who you are and whether your role is allowed to do this. If not, it refuses with a short explanation.
+5. If it is allowed, the server reads or saves the data in the database (MongoDB) and sends the result back.
+
+Passwords are never stored as plain text. They are hashed before they are saved.
+
+### What PulseDev is not
+
+It is a portfolio project that shows how a role-based team tool can be built end to end. It is not a finished commercial product. There is no payment, no email sending, and some production features such as rate limiting and backups are still missing. The full list is in [Known limits](#known-limits).
+
+## Try it
+
+On the sign-in page, pick one of the sample accounts to see the app from that role's point of view. The demo password is shown on the sign-in page.
+
+| Account | Title | Role |
+| --- | --- | --- |
+| Priya Patel | Staff Backend Lead | lead |
+| Marcus Vance | Senior Software Engineer | developer |
+| Sophia Laurent | QA Automation Lead | qa |
+| Jordan Blake | Product Manager | guest |
+
+These accounts are shared and public, so please do not enter anything private. Their password, email, role and deletion are locked on the server. The administrator account is not part of the demo.
+
+You can also register your own account from the sign-in page.
+
+A good way to try it: sign in as Marcus, move an issue to In Review, then open the site in a second window as Sophia and pass or reject it.
+
+## Features
+
+- **Overview:** a dashboard for the current project with real counts from the database.
+- **Initiatives:** projects with a name, key, description, category and tags.
+- **Active Sprint board:** issues move through Backlog, In Progress, In Review and Done. Search, priority filter and an "Assigned to me" filter are included.
+- **QA review:** QA passes or rejects issues in review. A rejection needs a reason, keeps a history entry, sends the issue back to In Progress and notifies the people involved.
+- **Role-based permissions:** each role can do different things on the board, and the API checks them again. A forbidden action returns a 403 with a short explanation, shown as a toast.
+- **Audit log:** admin actions such as a QA override are recorded.
+- **Team chat:** messages, replies, mentions and file attachments.
+- **Notifications:** a notification center with read state per user.
+- **Planning Assistant:** generate a draft backlog, ask for an architecture or security review, or get an interview question and answer. It uses Gemini when a key is set and falls back to built-in content when it is not.
+- **Mobile layout:** the navigation is a drawer, the board scrolls one column at a time, and the audit log turns into stacked entries on small screens.
+
+### Issue states
 
 | State | Meaning |
 | --- | --- |
-| **Backlog** | Work that is planned but has not started |
-| **In Progress** | Work currently being implemented |
-| **In Review** | Work waiting for QA review |
-| **Done** | Work that passed QA or was shipped by an authorized Admin override |
+| Backlog | Planned, not started |
+| In Progress | Being worked on |
+| In Review | Waiting for QA |
+| Done | Passed QA, or shipped by an admin override |
 
-Issues include a title, description, assignee, priority, estimated effort, tags, comments, and—when rejected—QA feedback and rejection history. Search, priority filtering, and an “Assigned to me” filter help users find relevant work.
+Each issue has a title, description, assignee, priority, estimate, tags and comments. Rejected issues also keep QA feedback.
 
-### Role-based access
+### Roles
 
-The application uses role-specific controls in the interface and checks sensitive task changes again in the API. Hiding a button is not treated as authorization.
-
-| Role | Sprint and workspace permissions |
+| Role | What they can do |
 | --- | --- |
-| **Admin** | Manage issues across the workspace, manage users, inspect audit records, and ship without a QA pass only after confirming the override. The override is recorded in the audit log. |
-| **Lead** | Reassign issues, reprioritize, comment, and move work among Backlog, In Progress, and In Review. A Lead cannot ship an issue or return work from QA review. |
-| **Developer** | Move only personally assigned issues among Backlog, In Progress, and In Review. A Developer cannot ship an issue. |
-| **QA** | Pass or reject issues that are in In Review. A rejection must include a reason and returns the issue to In Progress. |
-| **Product Manager** | Update issue priority and scope, including its description and tags, without changing its status. |
+| Admin | Manage issues and users, read the audit log, and ship without a QA pass after confirming the override. The override is logged. |
+| Lead | Reassign and reprioritize issues, comment, and move work between Backlog, In Progress and In Review. Cannot ship an issue or return work from QA review. |
+| Developer | Move only their own issues between Backlog, In Progress and In Review. Cannot ship an issue. |
+| QA | Pass or reject issues that are in review. |
+| Product Manager | Update priority and scope (description and tags) without changing status. |
 
-Authorization failures return an HTTP 403 response with a role-specific explanation. The UI surfaces the message as a toast so users understand why an action was denied.
+An admin cannot sign in as another user. The app has no feature for that.
 
-### QA review and auditability
-
-QA actions use dedicated approval and rejection API operations. Rejections require a reason, preserve a history entry, move the issue back to In Progress, and notify relevant users. An Admin who chooses to ship without a QA pass must confirm the action; the API also requires an explicit override flag and records the decision in the audit log.
-
-### Team communication and notifications
-
-Team Chat supports messages, replies that link back to the original message, mentions, and file attachments. Messages are persisted by the backend and refreshed by the client. The notification center surfaces relevant activity and lets each user track read status.
-
-### Planning Assistant
-
-The Planning Assistant includes three AI-assisted workflows:
-
-- Generate a draft sprint backlog from a project or feature description.
-- Request an architecture or security review.
-- Generate a technical interview question and answer for a selected topic.
-
-Gemini integration is optional. When the Gemini API is unavailable, some workflows return built-in fallback content so the interface can still be explored. Treat generated output as a draft that needs engineering review; do not send credentials, personal information, or other sensitive content to an AI prompt.
-
-### Team profiles and administration
-
-Team Members shows account profiles and the Sprint Board permission summary. Users can update their own profile and change their password. Admin-only tools include user administration, audit-log inspection, and the database inspector/reset controls.
-
-### Small-screen use
-
-On phones, the workspace navigation opens as a drawer from the menu button. The sprint board scrolls one column at a time; tap an issue to see its details and use **Move to** when your role permits a status change. QA can pass an issue or reject it with a reason. The Security & Logs page uses stacked entries on phones and keeps its table on wider screens. Dialogs and Team Chat fit the screen and scroll internally when their content is tall.
-
-Administrators can review activity and manage roles, but the application does not provide a way to sign in as another user. Unrecognized event names in older audit records are displayed as recorded.
-
-## Application architecture
+## How it is built
 
 ```mermaid
 flowchart LR
-    Browser["React + TypeScript UI<br/>Vite, Tailwind CSS"] -->|HTTP / JSON| Express["Express API<br/>server.ts"]
-    Express --> Auth["JWT authentication<br/>role & permission checks"]
-    Express --> Controllers["Feature controllers<br/>projects, issues, chat, notifications"]
+    Browser["React + TypeScript<br/>Vite, Tailwind CSS"] -->|HTTP / JSON| Express["Express API<br/>server.ts"]
+    Express --> Auth["JWT auth<br/>role and permission checks"]
+    Express --> Controllers["Controllers<br/>projects, tasks, chat, notifications"]
     Controllers --> Store["MongoDB Atlas<br/>Mongoose models"]
-    Express --> AI["Optional Gemini API"]
+    Express --> AI["Gemini API (optional)"]
 ```
 
-The Express server serves the Vite development middleware during local development. In production mode, it serves the compiled frontend from `dist/` and exposes the same API routes.
+One Express server does everything. In development it runs Vite as middleware. In production it serves the built frontend from `dist/` and the same API routes.
 
-### Data persistence
-
-The backend uses MongoDB through Mongoose. `backend/config/models.ts` defines the six workspace collections (users, projects, tasks, audit logs, messages, and notifications), while `backend/config/db.ts` connects before the API starts and seeds development demo data when needed. The connection string is read from `MONGO_URI`; it is never stored in source code.
-
-The repository ignores `backend/data/`, which may contain local JSON data from an earlier version of PulseDev. To preserve those records, stop the running development server, configure `MONGO_URI`, and run the one-time importer before starting the app:
-
-```bash
-npm run migrate:json-to-mongo
-npm run dev
-```
-
-The importer reads the six JSON collection files and inserts their records in a MongoDB transaction. It refuses to run if any target collection already contains documents, and it leaves the original files unchanged. Back up the JSON files and use an empty MongoDB database for the import. If you have no local JSON data, skip the importer; development startup will create the demo workspace in MongoDB.
-
-For production, configure MongoDB Atlas with a dedicated database user limited to the application's database and restrict Network Access to the application host. Use a unique database password, URL-encode special characters in credentials, and keep the completed connection string in a deployment secret—not in Git or chat. Atlas backups and recovery policies should be configured for any real user data.
-
-Docker files are included as deployment scaffolding. The Compose file defines PostgreSQL and Redis services, but the application uses MongoDB through `MONGO_URI`; starting those containers does not configure or migrate the app's MongoDB data.
-
-## Technology
-
-| Area | Technologies |
+| Area | Tools |
 | --- | --- |
-| Frontend | React 19, TypeScript, Vite, Tailwind CSS |
-| UI | Lucide icons, Motion |
-| Backend | Node.js, TypeScript, Express |
-| Authentication | Signed JWTs, bcrypt password hashing, server-side role and permission checks |
-| Persistence | MongoDB Atlas, Mongoose models, indexed collections |
-| AI | Optional Google Gemini integration through `@google/genai` |
-| Container scaffolding | Dockerfiles and Docker Compose configuration |
+| Frontend | React 19, TypeScript, Vite, Tailwind CSS, Lucide icons, Motion |
+| Backend | Node.js, Express, TypeScript |
+| Auth | Signed JWTs, bcrypt, server-side role checks |
+| Database | MongoDB Atlas with Mongoose |
+| AI | Google Gemini through `@google/genai` (optional) |
+| Hosting | Render (web service) and MongoDB Atlas |
 
-## Repository layout
+### Project layout
 
 ```text
 PulseDev/
 ├── backend/
-│   ├── config/          # Mongoose models, MongoDB adapter, and seed/bootstrap logic
-│   ├── scripts/         # One-time JSON-to-MongoDB data importer
-│   ├── controllers/     # API handlers for each feature
-│   ├── middleware/      # Authentication, permissions, and error handling
-│   ├── routes/          # Express route definitions
-│   └── data/            # Local JSON data and development JWT secret (generated)
-├── docker/              # Dockerfiles and Compose scaffold
+│   ├── config/        # Mongoose models, database connection, seed and startup logic
+│   ├── controllers/   # API handlers
+│   ├── middleware/    # Auth, permissions, error handling
+│   ├── routes/        # Express routes
+│   └── scripts/       # One-time JSON to MongoDB importer
+├── docker/            # Dockerfiles and compose file (see notes below)
 ├── frontend/
 │   └── src/
-│       ├── components/  # Shared UI, chat, notifications, and role dashboards
-│       ├── context/     # Authentication and project/task state
-│       ├── pages/       # Main application screens
-│       ├── services/    # Frontend API client
-│       ├── theme/       # Role-aware visual themes
-│       └── utils/       # Shared client utilities
-├── .env.example         # Environment variable template
-├── package.json         # Dependencies and npm scripts
-├── server.ts            # Express API and Vite integration
-├── tsconfig.json        # TypeScript configuration
-└── vite.config.ts       # Vite configuration
+│       ├── components/  # Shared UI, chat, notifications, role dashboards
+│       ├── context/     # Auth and project state
+│       ├── pages/       # Main screens
+│       ├── services/    # API client
+│       ├── theme/       # Role-based themes
+│       └── utils/
+├── .env.example
+├── server.ts          # Express server and Vite integration
+└── vite.config.ts
 ```
 
-## Run PulseDev locally
+### API routes
 
-### Requirements
+Everything is under `/api`. Protected routes need a signed-in session.
 
-- Node.js 22.12 or later
-- npm
+| Route | Purpose |
+| --- | --- |
+| `/api/users` | Sign in, register, profile, team list, password change, admin user and audit operations |
+| `/api/projects` | List and create projects, analytics, project tasks |
+| `/api/tasks` | Create, update, comment, delete, QA pass and reject |
+| `/api/messages` | Team chat |
+| `/api/notifications` | Notifications and read state |
+| `/api/ai` | Sprint generation, architecture review, interview Q&A |
+| `/api/database` | Admin-only data inspector and reset tools |
+| `/api/system` | Health check and diagnostics |
 
-### Install and start
+## Run it locally
 
-From the repository root:
+You need Node.js 22.12 or newer, npm, and a MongoDB Atlas cluster.
 
 ```bash
 npm ci
 npm run dev
 ```
 
-Before starting, create a root `.env` file and set `MONGO_URI` to your MongoDB Atlas connection string. Open [http://localhost:3000](http://localhost:3000) after startup. The development server runs the API and frontend together; a separate frontend server is not required.
-
-On first run, development mode seeds a small demonstration workspace and creates a persistent local JWT secret under `backend/data/` if `JWT_SECRET` is not configured. Demo personas are available on the sign-in screen. Use local-only credentials, and change any seeded password before exposing an instance to other people.
-
-### Environment configuration
-
-Create a root `.env` file for local configuration. Start from `.env.example`, replace placeholders with your own values, and never commit real secrets. MongoDB Atlas is required before starting the API:
+Create a `.env` file in the project root first (copy `.env.example`) and set at least `MONGO_URI`. Then open http://localhost:3000.
 
 ```env
-MONGO_URI=mongodb+srv://<username>:<password>@<cluster-url>/pulsedev?retryWrites=true&w=majority
+MONGO_URI=mongodb+srv://<username>:<password>@<cluster-url>/pulsedev_dev?retryWrites=true&w=majority
 
-# Optional during local development; a local persistent secret is generated if omitted.
-JWT_SECRET=replace_with_a_long_random_secret
+# Optional locally. A persistent local secret is generated if you leave it out.
+JWT_SECRET=<long random string>
 
-# Optional; required for live Gemini-generated responses.
-GEMINI_API_KEY=your_gemini_api_key
+# Optional. Without it the AI features return built-in fallback content.
+GEMINI_API_KEY=<your key>
 ```
 
-Generate a high-entropy JWT secret with Node.js:
+To generate a JWT secret:
 
 ```bash
 node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
 ```
 
-Keep `.env`, API keys, passwords, and generated local data out of public repositories and screenshots. Without `GEMINI_API_KEY`, the app can still run; AI requests may use the feature's built-in fallback response.
+On the first run in development the app seeds a demo workspace (users, projects, tasks, chat) into the database. Use a separate database for local work, for example `pulsedev_dev`, so seeding never touches the live data.
 
-To prepare Atlas, create a cluster, add a database user with read/write access to the `pulsedev` database, and allow your development machine's IP in Network Access. Copy the cluster connection string into `MONGO_URI`, replace the username/password/database values, and URL-encode any reserved characters in the username or password. Do not use the Atlas “allow access from anywhere” rule for a deployed application.
+### Atlas setup
 
-### Production startup configuration
+1. Create a cluster and a database user that only has read and write access to your PulseDev database.
+2. In Network Access, add your own IP address.
+3. Put the connection string in `MONGO_URI`. If the username or password has special characters, URL-encode them.
 
-Production mode requires a strong `JWT_SECRET`. To bootstrap the first administrator, set these values in the deployment environment or secret manager before starting the app:
+Never commit `.env`, API keys or passwords.
+
+### Scripts
+
+| Command | What it does |
+| --- | --- |
+| `npm run dev` | Start the API and the frontend together |
+| `npm run build` | Build the frontend into `dist/` |
+| `npm start` | Start the server (used in production) |
+| `npm run lint` | Type-check with `tsc --noEmit` |
+| `npm test` | Run the schema, query-guard and demo-account tests (no database needed) |
+| `npm run migrate:json-to-mongo` | One-time import of old local JSON data into an empty database |
+
+The importer reads the six JSON collection files, inserts them in a transaction, refuses to run if any target collection already has documents, and leaves the original files alone.
+
+Health check: `GET /api/system/health`
+
+## Deploy
+
+PulseDev is a single Node service, so it deploys as one web service. This is how the live demo is set up on Render.
+
+| Setting | Value |
+| --- | --- |
+| Build command | `npm ci --include=dev && npm run build` |
+| Start command | `npm run start` |
+| Root directory | leave empty |
+
+The start script runs `tsx`, which is a dev dependency, so the build command installs dev dependencies too.
+
+### Environment variables
+
+| Variable | Notes |
+| --- | --- |
+| `NODE_ENV` | `production` |
+| `NODE_VERSION` | `22` (Render setting) |
+| `MONGO_URI` | Atlas connection string with a user limited to this database |
+| `JWT_SECRET` | Required in production. Use a long random value. |
+| `GEMINI_API_KEY` | Optional |
+| `DEMO_ACCOUNTS_PASSWORD` | Optional. Password for the four demo accounts, at least 6 characters |
+| `VITE_DEMO_PASSWORD` | Optional. Same value as above, used at build time to show it on the sign-in page |
+
+### First administrator
+
+In production the app needs an administrator before it starts. Set these once:
 
 ```env
-NODE_ENV=production
-MONGO_URI=mongodb+srv://<username>:<password>@<cluster-url>/pulsedev?retryWrites=true&w=majority
-JWT_SECRET=<unique high-entropy secret>
-INITIAL_ADMIN_NAME=Workspace Administrator
-INITIAL_ADMIN_EMAIL=admin@example.com
-INITIAL_ADMIN_PASSWORD=<unique password with at least 16 characters>
+INITIAL_ADMIN_NAME=<your name>
+INITIAL_ADMIN_EMAIL=<your email>
+INITIAL_ADMIN_PASSWORD=<unique password, at least 16 characters>
 ```
 
-Set both `INITIAL_ADMIN_EMAIL` and `INITIAL_ADMIN_PASSWORD`, and remove these bootstrap credentials from the runtime environment after the administrator has been created. Sign in and rotate the initial password. Never deploy the seeded development passwords or commit production secrets.
+After the first successful start the admin exists in the database. Remove the three `INITIAL_ADMIN_*` variables, since the plain-text password should not stay in the deployment settings. On startup the app also replaces the old built-in demo administrator.
 
-#### Optional demo account access
+### Demo accounts in production
 
-To let recruiters sign in with the seeded non-admin roles in production, set `DEMO_ACCOUNTS_PASSWORD` in the backend runtime and `VITE_DEMO_PASSWORD` in the frontend build environment to the exact same value. Use at least 6 characters. The backend resets the passwords for Priya, Marcus, Sophia, and Jordan at each production startup; it does not apply the value to an administrator. If `DEMO_ACCOUNTS_PASSWORD` is unset, those accounts are locked. If `VITE_DEMO_PASSWORD` is unset at build time, the production login page hides the sample cards.
+Production startup locks the seeded demo accounts by default, because their development passwords were public. To let visitors use them:
 
-`VITE_DEMO_PASSWORD` is included in the public frontend bundle so the login page can display the demo password. This password is public by design. Use it only for these demo accounts, never for a real user, administrator, database, or other service. Do not put an actual password in `.env.example`, README, or source control. Keep `DEMO_ACCOUNTS_PASSWORD` only in the backend's deployment environment and build `VITE_DEMO_PASSWORD` from the same value in the frontend deployment environment.
+- Set `DEMO_ACCOUNTS_PASSWORD` for the backend and `VITE_DEMO_PASSWORD` for the build, with the exact same value.
+- Every start, the backend sets the password of Priya, Marcus, Sophia and Jordan to that value. It never applies it to an administrator.
+- If `DEMO_ACCOUNTS_PASSWORD` is not set, those accounts stay locked. If `VITE_DEMO_PASSWORD` is not set at build time, the sign-in page hides the sample cards.
+- The value ends up in the public frontend bundle, so treat it as public. Do not reuse a password you use anywhere else.
 
-### Verify the application
+Redeploy after changing a `VITE_` variable, because it is read at build time.
 
-The health endpoint can be used to confirm that the server is responding:
+### Database access on Render
 
-```text
-GET http://localhost:3000/api/system/health
-```
+Render's outbound IP ranges are shown in the service's Connect menu under Outbound. Add those ranges to the Atlas IP access list instead of allowing access from anywhere. Render has changed these ranges before, so if the database stops connecting after some time, check them again.
 
-The repository's validation commands are:
+## Known limits
 
-```bash
-npm test
-npm run lint
-npm run build
-```
+- It is a portfolio project, not a hardened production system. There is no rate limiting yet, no backup plan beyond what Atlas offers, and no monitoring.
+- The demo accounts are shared. Anyone can change demo data, and an admin can reset it with the database tools.
+- The free Render instance sleeps when idle.
+- The Docker files are a starting point only. The compose file defines PostgreSQL and Redis, but the app uses MongoDB through `MONGO_URI`, so those containers do not do anything for the app.
+- The Gemini features depend on your key and quota. Without a key they return fixed fallback content.
+- Test coverage is small. It covers the schemas, the database query guard and the demo account rules.
 
-`npm test` runs the Mongoose schema and database-query guard tests without requiring a live MongoDB instance. `npm run lint` runs the TypeScript compiler without emitting files. `npm run build` creates the production frontend bundle in `dist/`.
+## Ideas for later
 
-## API overview
+- API and end-to-end tests for permissions, QA transitions and sign-in failures
+- Rate limiting on sign-in and registration
+- Backups, restore steps and basic monitoring
+- Code splitting, because the main bundle is larger than 500 kB
+- Fixing the Docker setup so it matches the real runtime
 
-All API routes use the `/api` prefix. Protected routes expect a valid signed-in session.
+## Contributing
 
-| Route group | Purpose |
-| --- | --- |
-| `/api/users` | Sign-in, registration, profile, team directory, password change, and Admin account/audit operations |
-| `/api/projects` | Initiative listing, creation, analytics, and project task retrieval |
-| `/api/tasks` | Issue creation, role-checked updates, comments, deletion, and QA pass/reject actions |
-| `/api/messages` | Team chat message retrieval and creation |
-| `/api/notifications` | User notifications and per-user read state |
-| `/api/ai` | Sprint generation, architecture review, and interview Q&A |
-| `/api/database` | Admin-only data inspection, statistics, and reset/reseed tools |
-| `/api/system` | Health and diagnostic metrics |
-
-## Project boundaries and next steps
-
-PulseDev is an evolving application rather than a claim of production-ready infrastructure. MongoDB provides shared persistence, but deployment still requires production secrets, an appropriately secured Atlas project, backups, monitoring, rate limiting, and operational testing.
-
-Potential next steps include:
-
-- Add automated API and end-to-end tests for role permissions, QA transitions, authentication, and failure cases.
-- Add deployment-specific observability, backup and restore procedures, and rate limiting.
-- Review the Docker setup so its services and persistence configuration match the application's actual runtime dependencies.
-
-Contributions should preserve server-side authorization, avoid exposing secrets, and update this documentation when user-visible behavior or setup requirements change.
+Keep authorization checks on the server, do not commit secrets, and update this README when setup steps or visible behavior change.
