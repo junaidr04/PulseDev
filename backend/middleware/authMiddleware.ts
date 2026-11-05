@@ -4,6 +4,11 @@ import fs from 'fs';
 import jwt from 'jsonwebtoken';
 import path from 'path';
 import db from '../config/db.js';
+import {
+  getPermissionsForRole,
+  hasAuthorizedRole,
+} from './permissions.js';
+import type { Permission } from './permissions.js';
 
 function resolveJwtSecret(): string {
   const configuredSecret = process.env.JWT_SECRET?.trim();
@@ -43,70 +48,8 @@ export const JWT_SECRET = resolveJwtSecret();
 // Server-side revoked token registry to invalidate sessions immediately upon logout
 export const revokedTokens = new Set<string>();
 
-export type Permission =
-  | 'profile.read'
-  | 'profile.update.self'
-  | 'team.read'
-  | 'team.manage'
-  | 'users.manage'
-  | 'audit.read'
-  | 'projects.manage'
-  | 'tasks.read'
-  | 'tasks.write'
-  | 'tasks.delete';
-
-export const ROLE_PERMISSIONS: Record<string, Permission[]> = {
-  guest: [
-    'profile.read',
-    'profile.update.self',
-    'team.read',
-    'projects.manage',
-    'tasks.read',
-    'tasks.write',
-  ],
-  developer: [
-    'profile.read',
-    'profile.update.self',
-    'team.read',
-    'projects.manage',
-    'tasks.read',
-    'tasks.write',
-  ],
-  qa: [
-    'profile.read',
-    'profile.update.self',
-    'team.read',
-    'projects.manage',
-    'tasks.read',
-    'tasks.write',
-  ],
-  lead: [
-    'profile.read',
-    'profile.update.self',
-    'team.read',
-    'team.manage',
-    'projects.manage',
-    'tasks.read',
-    'tasks.write',
-    'tasks.delete',
-  ],
-  admin: [
-    'profile.read',
-    'profile.update.self',
-    'team.read',
-    'team.manage',
-    'users.manage',
-    'audit.read',
-    'projects.manage',
-    'tasks.read',
-    'tasks.write',
-    'tasks.delete',
-  ],
-};
-
-export const getPermissionsForRole = (role: string): Permission[] => {
-  return ROLE_PERMISSIONS[role] || ROLE_PERMISSIONS.guest;
-};
+export { getPermissionsForRole, ROLE_PERMISSIONS } from './permissions.js';
+export type { Permission } from './permissions.js';
 
 export interface AuthRequest extends Request {
   user?: any;
@@ -220,7 +163,7 @@ export const authorize = (...roles: string[]) => {
       });
     }
 
-    if (!roles.includes(req.user.role)) {
+    if (!hasAuthorizedRole(req.user.role, roles)) {
       return res.status(403).json({
         success: false,
         message: `403 Forbidden: User role '${req.user.role}' is not permitted to access this resource. Required role: [${roles.join(', ')}].`,

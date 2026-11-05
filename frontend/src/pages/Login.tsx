@@ -123,6 +123,9 @@ function styleForRole(role: string) {
 
 export const Login: React.FC<LoginProps> = ({ onNavigate }) => {
   const { login } = useAuth();
+  const demoPassword = import.meta.env.VITE_DEMO_PASSWORD;
+  const hasDemoPassword = typeof demoPassword === 'string' && demoPassword.length >= 6;
+  const showSampleAccounts = !import.meta.env.PROD || hasDemoPassword;
   const [personas, setPersonas] = useState<PersonaCardItem[]>(DEFAULT_PERSONAS);
   const [email, setEmail] = useState(() => {
     const prefilled = sessionStorage.getItem('pulsedev_prefill_login_email');
@@ -169,7 +172,10 @@ export const Login: React.FC<LoginProps> = ({ onNavigate }) => {
     loadLivePersonas();
   }, []);
 
-  const selectedPersona = personas.find(
+  const visiblePersonas = import.meta.env.PROD
+    ? personas.filter((persona) => persona.email.toLowerCase() !== 'alex.chen@pulsedev.io')
+    : personas;
+  const selectedPersona = visiblePersonas.find(
     (p) => p.email.toLowerCase() === email.trim().toLowerCase()
   );
 
@@ -216,19 +222,22 @@ export const Login: React.FC<LoginProps> = ({ onNavigate }) => {
           </div>
           <h2 className="text-xl font-bold text-white tracking-tight">Sign in to your workspace</h2>
           <p className="text-xs text-slate-400 mt-1">
-            Choose a sample account or sign in with your email.
+            {showSampleAccounts
+              ? 'Choose a sample account or sign in with your email.'
+              : 'Sign in with your email.'}
           </p>
         </div>
 
-        <div className="rounded-2xl border border-slate-800/80 bg-slate-900/60 p-4">
-          <div className="flex items-center justify-between mb-2.5">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-300">
-              Sample accounts
-            </span>
-          </div>
+        {showSampleAccounts && (
+          <div className="rounded-2xl border border-slate-800/80 bg-slate-900/60 p-4">
+            <div className="mb-2.5 flex items-center justify-between">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-300">
+                Sample accounts
+              </span>
+            </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-            {personas.map((p) => {
+            <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+              {visiblePersonas.map((p) => {
               const isSelected = email.toLowerCase() === p.email.toLowerCase();
               return (
                 <button
@@ -271,9 +280,15 @@ export const Login: React.FC<LoginProps> = ({ onNavigate }) => {
                   </div>
                 </button>
               );
-            })}
+              })}
+            </div>
+            {import.meta.env.PROD && hasDemoPassword && (
+              <p className="mt-3 text-center text-sm text-slate-300">
+                Demo accounts use the password: <span className="font-medium text-white">{demoPassword}</span>
+              </p>
+            )}
           </div>
-        </div>
+        )}
 
         {/* Authentication Form */}
         <form

@@ -11,6 +11,7 @@ import {
   UserModel,
   collectionModels,
 } from './models.js';
+import { DEMO_ACCOUNTS, isDemoAccountEmail } from './demoAccounts.js';
 
 export interface BaseDocument {
   _id: string;
@@ -572,6 +573,14 @@ class MongoStore {
     if (bootstrapEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(bootstrapEmail)) {
       throw new Error('INITIAL_ADMIN_EMAIL must be a valid email address.');
     }
+    if (bootstrapEmail && isDemoAccountEmail(bootstrapEmail)) {
+      throw new Error('INITIAL_ADMIN_EMAIL cannot use a reserved demo account email.');
+    }
+
+    const demoPassword = process.env.DEMO_ACCOUNTS_PASSWORD;
+    if (demoPassword !== undefined && demoPassword.length < 6) {
+      throw new Error('DEMO_ACCOUNTS_PASSWORD must be at least 6 characters long.');
+    }
 
     const builtInAdmin = coreAccounts.find((account) => account.role === 'admin');
     if (!builtInAdmin) throw new Error('Production administrator seed configuration is missing.');
@@ -601,13 +610,51 @@ class MongoStore {
       console.info('[Auth] Replaced a legacy built-in administrator credential.');
     }
 
-    for (const account of coreAccounts) {
-      if (account._id === builtInAdmin._id) continue;
-      const existing = await this.users.findById(account._id);
-      if (existing && await bcrypt.compare(account.rawPassword, existing.password)) {
-        await this.users.findByIdAndUpdate(existing._id, {
-          password: await bcrypt.hash(randomBytes(32).toString('hex'), 12),
+    if (demoPassword) {
+      for (const demoAccount of DEMO_ACCOUNTS) {
+        const account = coreAccounts.find(
+          (candidate) => candidate.email === demoAccount.email
+        );
+        if (!account) throw new Error('Production demo account seed configuration is missing.');
+
+        const existing = await this.users.findOne({ email: demoAccount.email });
+        if (existing?.role === 'admin') {
+          throw new Error('A reserved demo account email belongs to an administrator.');
+        }
+
+        const password = await bcrypt.hash(demoPassword, 12);
+        if (existing) {
+          await this.users.findByIdAndUpdate(existing._id, { password });
+          continue;
+        }
+
+        const idOwner = await this.users.findById(account._id);
+        if (idOwner) {
+          throw new Error('A seeded demo account ID belongs to another account.');
+        }
+
+        await this.users.create({
+          _id: account._id,
+          name: account.name,
+          email: account.email,
+          password,
+          role: account.role,
+          avatar: account.avatar,
+          title: account.title,
+          department: account.department,
+          status: account.status,
         });
+      }
+    } else {
+      for (const demoAccount of DEMO_ACCOUNTS) {
+        const existing =
+          await this.users.findOne({ email: demoAccount.email }) ||
+          await this.users.findById(demoAccount._id);
+        if (existing && existing.role !== 'admin') {
+          await this.users.findByIdAndUpdate(existing._id, {
+            password: await bcrypt.hash(randomBytes(32).toString('hex'), 12),
+          });
+        }
       }
     }
 

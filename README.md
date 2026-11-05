@@ -212,6 +212,12 @@ INITIAL_ADMIN_PASSWORD=<unique password with at least 16 characters>
 
 Set both `INITIAL_ADMIN_EMAIL` and `INITIAL_ADMIN_PASSWORD`, and remove these bootstrap credentials from the runtime environment after the administrator has been created. Sign in and rotate the initial password. Never deploy the seeded development passwords or commit production secrets.
 
+#### Optional demo account access
+
+To let recruiters sign in with the seeded non-admin roles in production, set `DEMO_ACCOUNTS_PASSWORD` in the backend runtime and `VITE_DEMO_PASSWORD` in the frontend build environment to the exact same value. Use at least 6 characters. The backend resets the passwords for Priya, Marcus, Sophia, and Jordan at each production startup; it does not apply the value to an administrator. If `DEMO_ACCOUNTS_PASSWORD` is unset, those accounts are locked. If `VITE_DEMO_PASSWORD` is unset at build time, the production login page hides the sample cards.
+
+`VITE_DEMO_PASSWORD` is included in the public frontend bundle so the login page can display the demo password. This password is public by design. Use it only for these demo accounts, never for a real user, administrator, database, or other service. Do not put an actual password in `.env.example`, README, or source control. Keep `DEMO_ACCOUNTS_PASSWORD` only in the backend's deployment environment and build `VITE_DEMO_PASSWORD` from the same value in the frontend deployment environment.
+
 ### Verify the application
 
 The health endpoint can be used to confirm that the server is responding:

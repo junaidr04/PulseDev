@@ -9,6 +9,10 @@ import {
   revokedTokens,
   getPermissionsForRole,
 } from '../middleware/authMiddleware.js';
+import {
+  getDemoAccountMutationMessage,
+  isDemoAccountEmail,
+} from '../config/demoAccounts.js';
 
 // Generate JWT Helper
 export const generateToken = (
@@ -65,6 +69,13 @@ export const registerUser = async (req: Request, res: Response) => {
       return res.status(400).json({
         success: false,
         message: 'Password must be between 6 and 128 characters long.',
+      });
+    }
+
+    if (isDemoAccountEmail(email)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Demo account email addresses are reserved.',
       });
     }
 
@@ -254,6 +265,15 @@ export const changePassword = async (req: AuthRequest, res: Response) => {
       return res.status(401).json({ success: false, message: 'Authentication required.' });
     }
 
+    const userDoc = await db.users.findById(req.user._id);
+    if (!userDoc) {
+      return res.status(404).json({ success: false, message: 'User account not found.' });
+    }
+    const demoPasswordMessage = getDemoAccountMutationMessage(userDoc, 'password');
+    if (demoPasswordMessage) {
+      return res.status(403).json({ success: false, message: demoPasswordMessage });
+    }
+
     const body = req.body && typeof req.body === 'object' ? req.body : {};
     const { currentPassword, newPassword } = body;
     if (typeof currentPassword !== 'string' || !currentPassword || typeof newPassword !== 'string' || !newPassword) {
@@ -268,11 +288,6 @@ export const changePassword = async (req: AuthRequest, res: Response) => {
         success: false,
         message: 'New password must be between 6 and 128 characters long.',
       });
-    }
-
-    const userDoc = await db.users.findById(req.user._id);
-    if (!userDoc) {
-      return res.status(404).json({ success: false, message: 'User account not found.' });
     }
 
     const isCurrentValid = await bcrypt.compare(currentPassword, userDoc.password);
@@ -469,8 +484,18 @@ export const updateUserProfile = async (req: AuthRequest, res: Response) => {
       return res.status(404).json({ success: false, message: 'User not found.' });
     }
 
-    // Never allow role, email, _id, or password mutation through profile update
     const body = req.body && typeof req.body === 'object' ? req.body : {};
+    if (
+      typeof body.email === 'string' &&
+      body.email.trim().toLowerCase() !== existing.email.trim().toLowerCase()
+    ) {
+      const demoEmailMessage = getDemoAccountMutationMessage(existing, 'email');
+      if (demoEmailMessage) {
+        return res.status(403).json({ success: false, message: demoEmailMessage });
+      }
+    }
+
+    // Never allow role, email, _id, or password mutation through profile update.
     const allowedUpdates: Record<string, any> = {};
     if (typeof body.name === 'string' && body.name.trim() && body.name.trim().length <= 80) {
       allowedUpdates.name = body.name.trim();
@@ -529,6 +554,12 @@ export const adminCreateUser = async (req: AuthRequest, res: Response) => {
       return res.status(400).json({
         success: false,
         message: 'Enter a valid name and email address.',
+      });
+    }
+    if (isDemoAccountEmail(email)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Demo account email addresses are reserved.',
       });
     }
     if (typeof password !== 'string' || password.length < 8 || password.length > 128) {
@@ -606,6 +637,10 @@ export const updateUserRole = async (req: AuthRequest, res: Response) => {
     if (!targetUser) {
       return res.status(404).json({ success: false, message: 'Target user not found.' });
     }
+    const demoRoleMessage = getDemoAccountMutationMessage(targetUser, 'role');
+    if (demoRoleMessage) {
+      return res.status(403).json({ success: false, message: demoRoleMessage });
+    }
 
     const previousRole = targetUser.role;
     const updated = await db.users.findByIdAndUpdate(id, { role: role as any }, { new: true });
@@ -653,6 +688,10 @@ export const deleteUser = async (req: AuthRequest, res: Response) => {
     const targetUser = await db.users.findById(id);
     if (!targetUser) {
       return res.status(404).json({ success: false, message: 'Target user not found.' });
+    }
+    const demoDeletionMessage = getDemoAccountMutationMessage(targetUser, 'deletion');
+    if (demoDeletionMessage) {
+      return res.status(403).json({ success: false, message: demoDeletionMessage });
     }
 
     await db.users.findByIdAndDelete(id);
